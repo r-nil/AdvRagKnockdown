@@ -1556,6 +1556,15 @@ function ENT:Think()
     if not IsValid(own) or own:Health() <= 0 or (own:IsPlayer() and not own:Alive()) then self:RemoveSelf() return end
     local pObjs = self.RagPObjs
 
+    ---- set velocity!
+    --if self._set_velocity then
+    --    for i,v in pairs(pObjs) do 
+    --        v.pObj:AddVelocity(self._set_velocity * Vector(0.2,0.2,0.5))
+    --    end
+    --    --rag:GetPhysicsObject():AddVelocity(self._set_velocity)
+    --    self._set_velocity = nil
+    --end
+
     local isPly = own:IsPlayer()
 
     local wep = own:GetActiveWeapon()

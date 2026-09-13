@@ -430,9 +430,9 @@ local setItOnMe = {
     "RenderFX",
     "Bodygroup",
     "BodyGroups",
-    "Velocity",
-    "AbsVelocity",
-    "LocalVelocity",
+    --"Velocity",
+    --"AbsVelocity",
+    --"LocalVelocity",
     "FlexScale",
     "FlexWeight",
 }
@@ -466,6 +466,57 @@ for _, str in ipairs(setItOnMe) do
     funchooks.Add("Entity.Set" .. str, "Savee_AdvRagKnockdown_Syncing", override)
 
 end
+
+-- 這樣應該就讓Boomstick能夠給自己擊退了
+local dangerzone
+funchooks.Add("Entity.SetVelocity", "Savee_AdvRagKnockdown_Syncing", function(ent, ...)
+    local ctrl = getController(ent)
+    if dangerzone or not IsValid(ctrl) then return __undetoured(ent, ...) end
+    
+    dangerzone = true
+
+    if ent:IsRagdoll() and ent.Initialized then
+        local own = ctrl:GetOwner()
+        own:SetVelocity(...)
+        dangerzone = false
+        return
+    end
+    local rag = ctrl:GetRagdoll()
+    rag:SetVelocity(...)
+    --okay so here's the thing, we gotta set the velocity of the ragdoll next frame! (X)
+    ctrl._set_velocity = select(1,...)
+    -- set velocity!
+    if ctrl._set_velocity then
+        for i,v in pairs(ctrl.RagPObjs) do 
+            v.pObj:AddVelocity(ctrl._set_velocity / 4)
+        end
+        ctrl._set_velocity = nil
+    end
+
+    dangerzone = false
+
+    return __undetoured(ent, ...)
+end)
+
+funchooks.Add("Entity.GetVelocity", "Savee_AdvRagKnockdown_Syncing", function(ent, ...)
+    local ctrl = getController(ent)
+    if not IsValid(ctrl) then return __undetoured(ent, ...) end
+
+    local rag = ctrl:GetRagdoll()
+    local phy = ctrl:GetPhysicsObject()
+    if IsValid(rag) and IsValid(phy) then return phy:GetVelocity() end
+    return __undetoured(ent, ...)
+end)
+
+funchooks.Add("Entity.SetLocalVelocity", "Savee_AdvRagKnockdown_Syncing", function(ent, ...)
+    local ctrl = getController(ent)
+    if not IsValid(ctrl) then return __undetoured(ent, ...) end
+
+    local rag = ctrl:GetRagdoll()
+    local phy = ctrl:GetPhysicsObject()
+    if IsValid(rag) and IsValid(phy) then phy:SetVelocity(...) end
+    return __undetoured(ent, ...)
+end)
 
 local doOriginalHTs = {
     ["knife"] = true,
