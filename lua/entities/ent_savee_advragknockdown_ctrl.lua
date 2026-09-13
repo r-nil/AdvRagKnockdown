@@ -1322,6 +1322,10 @@ function ENT:ShouldGetUp()
 
     if consc < 45 or stamina < 45 then return false end
 
+    if getCV("sb", "Bool") and Rnil_ADVRAGKNOCKDOWN_SB then
+        return false
+    end
+
     if self.GettingUp then
         local bp1 = (self.GettingUp_SyncingToOwner and self or self.GetupAnimModel):GetBonePosition(0)
         local bp2 = rag:GetBonePosition(0)

@@ -14,9 +14,13 @@
 -- 
 -- 2026/8/7: 观前提醒: 本插件完全抄袭了RagKnockdown, 就连名字也一样
 
+local GAMEMODES = {
+    ["sandbox"] = true
+}
 
 AddCSLuaFile()
 
+Rnil_ADVRAGKNOCKDOWN_SB = GAMEMODES[engine.ActiveGamemode()]
 SAVEE_ADVRAGKNOCKDOWN_CONTROLLERS = SAVEE_ADVRAGKNOCKDOWN_CONTROLLERS or {}
 
 -- CVs
@@ -27,6 +31,8 @@ local cvTags = {FCVAR_ARCHIVE,FCVAR_REPLICATED}
 local cv_kd_enabled = CreateConVar(cvPrefix .. "enabled", 1, cvTags, "激活整个插件 *警告! 哪怕这个插件被禁用 某些hook的运算也是会照常运行的!*", 0, 1)
 local cv_kd_enabled_ply = CreateConVar(cvPrefix .. "enableply", 1, cvTags, "对玩家启用击倒", 0, 1)
 local cv_kd_enabled_npc = CreateConVar(cvPrefix .. "enablenpc", 1, cvTags, "对NPC启用击倒", 0, 1)
+
+local cv_always_ragdoll = CreateConVar(cvPrefix .. "sb", 1, cvTags, "在某些模式下,所有人總是會在擊倒狀態", 0, 1)
 
 local cv_kd_playdead_enabled = CreateConVar(cvPrefix .. "playdead_enabled", 1, cvTags, "激活假死", 0, 1)
 local cv_kd_playdead_enabled_ply = CreateConVar(cvPrefix .. "playdead_enableply", 1, cvTags, "对玩家启用假死", 0, 1)
@@ -69,7 +75,7 @@ CreateConVar(cvPrefix .. "statcalc_ply_staminadmgmul", 1, cvTags, "[对玩家] �
 CreateConVar(cvPrefix .. "statcalc_ply_conscdmgmul", 1, cvTags, "[对玩家] 意识伤害乘数", 0)
 
 local clcv_ctrl_nodefkeybind = CreateClientConVar(cvPrefix .. "cl_control_disabledefaultkeybind", "0", true, true, "禁用默认的瞄准方法(按住E瞄准), 可能对某些服务器的自定义按键设置有帮助", 0, 1)
-local clcv_ctrl_reversedaiming = CreateClientConVar(cvPrefix .. "cl_control_reversedaiming", "0", true, true, "[仅按住E可用时] 按住E取消瞄准 而不是进行瞄准", 0, 1)
+local clcv_ctrl_reversedaiming = CreateClientConVar(cvPrefix .. "cl_control_reversedaiming", "1", true, true, "[仅按住E可用时] 按住E取消瞄准 而不是进行瞄准", 0, 1)
 local clcv_ctrl_altaimkey = CreateClientConVar(cvPrefix .. "cl_control_altaimkey", "0", true, true, "[仅按住E可用时] 按住[慢走键](默认是LAlt)进行瞄准", 0, 1)
 local clcv_ctrl_aim = CreateClientConVar(cvPrefix .. "cl_control_autoaim", "0", true, true, "[仅自定义按键可用时] 击倒时默认开启瞄准(0: 关闭, 1: 仅主动击倒, 2: 任何情况下被击倒(需要服务器打开相关设置!))", 0, 2) -- ToDo: 把2加上
 local clcv_ctrl_getup_smoothtransition = CreateClientConVar(cvPrefix .. "cl_getup_smoothtransitioninterval", "0.15", true, true, "在起身后视角在和老视角和实际视角的过渡时间, 总而言之就是能让起身的视角转换看上去丝滑一点(我相信你不会把它改成1以上的值)", 0)
@@ -1908,6 +1914,12 @@ if SERVER then
         --print(sys)
         return __undetoured(sys, ...)
     end)]]
+
+    hook.Add("PlayerSpawn","Rnil_AdvRagKnockdown_SB",function(ply)
+        if Rnil_ADVRAGKNOCKDOWN_SB and cv_always_ragdoll:GetBool() then
+            doKnockdown(ply)
+        end
+    end)
 
 else
 
