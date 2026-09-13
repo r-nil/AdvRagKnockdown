@@ -456,6 +456,7 @@ local function nearestBone(ent, pos, physRequired)
     return nearest
 end
 local function boneHasParent(rag, i, pI)
+    --[[
     if i == pI then return true end
     local tries = 0
     while i ~= -1 and tries <= 256 do
@@ -464,6 +465,12 @@ local function boneHasParent(rag, i, pI)
         if i == pI then return true end
     end
     return false
+    ]]
+
+    local p = rag:GetBoneParent(i)
+    if p == pI then return true end
+    if p == -1 then return false end
+    return boneHasParent(rag, p, pI)
 end
 
 -- 在学校想出来的神秘IK系统
@@ -3509,6 +3516,7 @@ end
 local cachedHandModel = ""
 local cachedHandData = {}
 local cachedHandBoneWhitelist = {}
+--local cachedHandBoneChildren = {}
 
 -- 你会想要把SVMAL的系统搬过来
 -- 出于对双枪的兼容性(不, 实际上不兼容)
@@ -3540,6 +3548,8 @@ function ENT:PreDrawPlayerHands(hands, vm, ply, wep)
     -- FROM SVMAL
     -- 是的我抄我自己
     if cachedHandModel ~= mdl then
+        table.Empty(cachedHandBoneWhitelist)
+
         local ref = ClientsideModel(mdl)
         ref:SetupBones()
         for bone = 0, ref:GetBoneCount() - 1 do
@@ -3549,6 +3559,10 @@ function ENT:PreDrawPlayerHands(hands, vm, ply, wep)
             else continue end
 
             local parent = ref:GetBoneParent(bone)
+            --if parent ~= -1 then
+            --    cachedHandBoneChildren[parent] = cachedHandBoneChildren[parent] or {}
+            --    table.insert(cachedHandBoneChildren[parent],bone)
+            --end
             ref:CopyBoneMatrix(parent, mtx)
             
             if not mtx then continue end
@@ -3565,11 +3579,15 @@ function ENT:PreDrawPlayerHands(hands, vm, ply, wep)
         cachedHandModel = mdl
     end
 
+    --local oldBones = {}
     for bone = 0, hands:GetBoneCount() - 1 do
         local name = hands:GetBoneName(bone)
 
         --print(name)
         if not cachedHandBoneWhitelist[bone] then continue end
+
+        --hands:CopyBoneMatrix(bone, mtx)
+        --oldBones[name] = {pos = mtx:GetTranslation(),ang = mtx:GetAngles()}
 
         local bone2 = rag:LookupBone(name)
         -- 抽象, 理论上它们都应存在
@@ -3589,16 +3607,36 @@ function ENT:PreDrawPlayerHands(hands, vm, ply, wep)
             
             hands:SetBoneMatrix(bone, mtx)
             continue
+        --elseif name:lower():match("finger") then
+        --    continue
         end
 
         rag:CopyBoneMatrix(bone2, mtx)
         local pos, ang = mtx:GetTranslation(), mtx:GetAngles()
 
         hands:CopyBoneMatrix(bone, mtx)
-        mtx:SetTranslation(LerpVector(lArmDelta, mtx:GetTranslation(), pos))
-        mtx:SetAngles(LerpAngle(lArmDelta, mtx:GetAngles(), ang))
+        local oldpos,oldang = mtx:GetTranslation(),mtx:GetAngles()
+        local newpos,newang = LerpVector(lArmDelta, oldpos, pos),LerpAngle(lArmDelta, oldang, ang)
+        mtx:SetTranslation(newpos)
+        mtx:SetAngles(newang)
 
         hands:SetBoneMatrix(bone, mtx)
+        --[[
+        if cachedHandBoneChildren[bone] then
+            for i,child in ipairs(cachedHandBoneChildren[bone]) do
+                local childname = hands:GetBoneName(child)
+                print(childname)
+                if childname:lower():match("finger") then
+                    hands:CopyBoneMatrix(child, mtx)
+                    local lpos,lang = WorldToLocal(mtx:GetTranslation(),mtx:GetAngles(),oldpos,oldang)
+                    local npos,nang = LocalToWorld(lpos,lang,newpos,newang)
+                    mtx:SetTranslation(npos)
+                    mtx:SetAngles(nang)
+                    hands:SetBoneMatrix(bone, mtx)
+                end
+            end
+        end
+        ]]
     end
 
 end

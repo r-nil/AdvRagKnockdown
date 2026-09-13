@@ -33,6 +33,14 @@ local cv_kd_enabled_ply = CreateConVar(cvPrefix .. "enableply", 1, cvTags, "对�
 local cv_kd_enabled_npc = CreateConVar(cvPrefix .. "enablenpc", 1, cvTags, "对NPC启用击倒", 0, 1)
 
 local cv_always_ragdoll = CreateConVar(cvPrefix .. "sb", 1, cvTags, "在某些模式下,所有人總是會在擊倒狀態", 0, 1)
+cvars.AddChangeCallback(cvPrefix .. "sb", function(_,_,new)
+    if not tobool(new) then return end
+    if not Rnil_ADVRAGKNOCKDOWN_SB then return end
+    for i,v in ipairs(player.GetAll()) do
+        Rnil_ADVRAGKNOCKDOWN_doKnockdown(v)
+    end
+end)
+
 
 local cv_kd_playdead_enabled = CreateConVar(cvPrefix .. "playdead_enabled", 1, cvTags, "激活假死", 0, 1)
 local cv_kd_playdead_enabled_ply = CreateConVar(cvPrefix .. "playdead_enableply", 1, cvTags, "对玩家启用假死", 0, 1)
@@ -1213,6 +1221,8 @@ if SERVER then
         end
 
     end
+
+    Rnil_ADVRAGKNOCKDOWN_doKnockdown = doKnockdown
 
     local function calcRagDamage(rag, di, take)
 
