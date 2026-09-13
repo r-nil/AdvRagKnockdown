@@ -829,8 +829,8 @@ funchooks.Add("Player.GetAimVector", "Savee_AdvRagKnockdown_Sync", function(ply,
     local av = raw and __raw(ply, ...) or finalAV --(tr.HitPos - eyepos):GetNormalized()
     --print(rDelta)
 
-
-    return LerpVector(CLIENT and ctrl.SmoothedRArmDelta or math.Clamp((ctrl:GetRArmDelta() - 0.03) * 10, 0, 1), av, handang:Forward())
+    local result = LerpVector(CLIENT and ctrl.SmoothedRArmDelta or math.Clamp((ctrl:GetRArmDelta() - 0.03) * 10, 0, 1), av, handang:Forward())
+    return result
    
 
 end)
@@ -2165,10 +2165,20 @@ else
         return self:CalcViewModelView(wep, vm, oldPos, oldAng, pos, ang, ...)
     
     end)
+
+    -- 實際上我們應該去動ViewModel而不是Hands
+    --[[
     hook.Add("PreDrawPlayerHands", "Savee_AdvRagKnockdown_CTRLHook", function(...)
         local self = getController(LocalPlayer():GetViewEntity())
         if returnCheck(self) then return end
         return self:PreDrawPlayerHands(...)
+    end)
+    ]]
+
+    hook.Add("PreDrawViewModel","Savee_AdvRagKnockdown_CTRLHook", function(vm,ply,wep,flags)
+        local self = getController(LocalPlayer():GetViewEntity())
+        if returnCheck(self) then return end
+        return self:PreDrawPlayerHands(vm,vm,ply,wep)
     end)
 
     -- EF_BONEMERGE特有的双绘制
@@ -2316,6 +2326,10 @@ else
     hook.Add("PreDrawBody", "Savee_AdvRagKnockdown_BlockBody", function()
         if IsValid(getController(LocalPlayer())) then return false end
     end)
+
+    --hook.Add("HUDPaintBackground","Rnil_AdvRagKnockdown_Help",function()
+    --    if not IsValid(getController(LocalPlayer())) then return end
+    --end)
 
 end
 
