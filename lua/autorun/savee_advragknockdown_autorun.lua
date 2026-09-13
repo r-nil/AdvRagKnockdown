@@ -1917,7 +1917,9 @@ if SERVER then
 
     hook.Add("PlayerSpawn","Rnil_AdvRagKnockdown_SB",function(ply)
         if Rnil_ADVRAGKNOCKDOWN_SB and cv_always_ragdoll:GetBool() then
-            doKnockdown(ply)
+            timer.Simple(0,function()
+                doKnockdown(ply)
+            end)
         end
     end)
 
