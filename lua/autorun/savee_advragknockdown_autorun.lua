@@ -865,6 +865,7 @@ funchooks.Add("CUserCmd.SetViewAngles", "Savee_AdvRagKnockdown_RecoilCorrection"
 end)
 
 -- 武器支持
+-- 不支持Zombie Survival的FireLuaBullets和FGC Weapon Base的FGC_FireLuaBullets... 也許我可以給FGC Weapon Base添加EntityFireBullets支持但是Zombie Survival我沒辦法
 hook.Add("EntityFireBullets", "Savee_AdvRagKnockdown_HitScanMod", function(ent, bullet)
     --local wep = ent
     if ent:IsWeapon() then ent = ent:GetOwner() end
