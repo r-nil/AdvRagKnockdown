@@ -283,6 +283,7 @@ local function debugTrace()
 
 end
 
+-- 也許是這裡導致FGC Weapon Base的子彈打不到自己, TODO: 在FGC Weapon Base加入ARKD支持(或者試圖修復這些detour導致的該問題)
 local trs = {
     "TraceLine",
     "TraceHull",
@@ -955,6 +956,8 @@ end)
 
 -- 武器支持
 -- 不支持Zombie Survival的FireLuaBullets和FGC Weapon Base的FGC_FireLuaBullets... 也許我可以給FGC Weapon Base添加EntityFireBullets支持但是Zombie Survival我沒辦法
+-- 操了, fgc weapon base的子彈射不到自己,這該如何解決?
+local fucked = false
 hook.Add("EntityFireBullets", "Savee_AdvRagKnockdown_HitScanMod", function(ent, bullet)
     --local wep = ent
     if fucked then return end
@@ -962,7 +965,9 @@ hook.Add("EntityFireBullets", "Savee_AdvRagKnockdown_HitScanMod", function(ent, 
     
     if SERVER then
         local newbullet = table.Copy(bullet)
+        fucked = true
         hook.Run("EntityFireBullets", ent, newbullet, true)
+        fucked = false
         local cb = newbullet.Callback or bullet.Callback
         bullet.Callback = function(attacker, btr, di)
             --BTR!???????
@@ -1854,7 +1859,7 @@ if SERVER then
     
     end)
 
-    hook.Add("OnNPCKilled", "!!Savee_AdvRagKnockdown_SetNPCPos", function(npc)
+    hook.Add("OnNPCKilled", "Savee_AdvRagKnockdown_SetNPCPos", function(npc)
         local ctrl = getController(npc)
         if not IsValid(ctrl) or not ctrl.Initialized then return end
 
@@ -1942,8 +1947,8 @@ if SERVER then
         AddOriginToPVS(ply:EyePos())
     end)
 
-    -- 你知道吗我又加了两个感叹号
-    hook.Add("EntityTakeDamage", "!!!!!Savee_AdvRagKnockdown_OwnerCorrection", function(rag, di)
+    -- 你知道吗我又加了两个感叹号(X)
+    hook.Add("EntityTakeDamage", "Savee_AdvRagKnockdown_OwnerCorrection", function(rag, di)
 
         local atk = di:GetAttacker()
 
@@ -1979,7 +1984,7 @@ if SERVER then
 
     
     -- 加个优先级
-    hook.Add("StartCommand", "!Savee_AdvRagKnockdown_RagView", function(ply, cmd)
+    hook.Add("StartCommand", "Savee_AdvRagKnockdown_RagView", function(ply, cmd)
         ---@type Entity
         local ctrl = ply.Savee_AdvRagKnockdown_Controller
         handlingKnockdownedCmd = IsValid(ctrl)
@@ -2174,7 +2179,7 @@ else
     end)
 
     local last_stored_roll = 0
-    hook.Add("StartCommand", "!Savee_AdvRagKnockdown_RagOperation", function(ply, cmd)
+    hook.Add("StartCommand", "Savee_AdvRagKnockdown_RagOperation", function(ply, cmd)
         ---@type Entity
         local ctrl = getController(ply)
         handlingKnockdownedCmd = IsValid(ctrl)
@@ -2252,7 +2257,7 @@ else
     local calcview_last_stored = -1
     local calcview_last_pos = vector_origin
     local calcview_last_ang = angle_zero
-    hook.Add("CalcView", "zzzSavee_AdvRagKnockdown_CTRLHook", function(ply, pos, ang, fov)
+    hook.Add("CalcView", "Savee_AdvRagKnockdown_CTRLHook", function(ply, pos, ang, fov)
         local self = getController(ply)
         local ct = CurTime()
 
@@ -2263,6 +2268,7 @@ else
             return calcview_last_stored + calcview_transtime >= ct and {
                 origin = LerpVector(lerp, calcview_last_pos, pos),
                 angles = LerpAngle(lerp, calcview_last_ang, ang),
+                fov = Lerp(lerp, fov * 0.95, fov)
             } or nil
         end
         local result = self:CalcView(ply, pos, ang, fov)

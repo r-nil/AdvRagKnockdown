@@ -3260,6 +3260,7 @@ local shouldDrawRagdoll
 
 local huge = math.huge
 -- 怪, 必须草一遍Owner的RenderOverride才能让DrawModel被使用
+
 function ENT:Draw(fl)
     local own = self:GetOwner()
     local rag = self:GetRagdoll()
@@ -3306,6 +3307,53 @@ function ENT:Draw(fl)
 
 end
 
+--現在不知道為啥draw vm的時候會讓其他部分隱藏,暫時禁用
+--[[
+--我不想看到那逆天嘴巴和眼球
+local isbadmaterial = function(mat)
+    local mat = mat:lower()
+    if mat:match("face") then return true end
+    if mat:match("eyeball") then return true end
+    if mat:match("mouth") then return true end
+    return false
+end
+
+local null = Material("null")
+
+-- "這是什麼鬼?" 你可能會問,說實話,我也不知道我為啥要這樣做.
+local hide_bad_mats = {
+    current_hidden = {},
+    cached_mdl_mats = {},
+    get_bad_mats = function(self,ent)
+        local mdl = ent:GetModel()
+        local cached_mdl_mats = self.cached_mdl_mats
+        if cached_mdl_mats[mdl] then return cached_mdl_mats[mdl] end
+
+        local badmats = {}
+        for i,mat in ipairs(ent:GetMaterials()) do
+            if isbadmaterial(mat) then
+                badmats[i] = mat
+            end
+        end
+        cached_mdl_mats[mdl] = badmats
+        return badmats
+    end,
+    start = function(self,ent)
+        table.Empty(self.current_hidden)
+        local a = 0
+        for id,mat in pairs(self:get_bad_mats(ent)) do
+            a = a + 1
+            self.current_hidden[a] = id
+            render.MaterialOverrideByIndex(id, null)
+        end
+    end,
+    hideend = function(self,ent)
+        for _,id in ipairs(self.current_hidden) do
+            render.MaterialOverrideByIndex(id)
+        end
+    end
+}
+--]]
 
 local mtx = Matrix()
 function ENT:CustomRagRenderOverride(fl)
@@ -3363,8 +3411,10 @@ function ENT:CustomRagRenderOverride(fl)
         own:SetBoneMatrix(i, mtx)
     end
 
-
+    --hide_bad_mats:start(self)
     self:DrawModel(fl)
+    --hide_bad_mats:hideend(self)
+
     if own:IsPlayer() then
         hook.Run("PostPlayerDraw", own, fl)
         self:SetupBones()
@@ -3407,6 +3457,8 @@ function ENT:CalcView(ply, pos, ang, fov)
     end]]
 
     --print(ang, ply:EyeAngles())
+
+    fov = fov * 0.95
 
     local rag = self:GetRagdoll()
     local eyeatt = rag:LookupAttachment("eyes")
@@ -3528,7 +3580,6 @@ function ENT:CalcView(ply, pos, ang, fov)
         fov = fov,
         drawviewer = not shouldDrawVM,
     }
-    --ply:GetViewModel():DrawModel()
 
     return view
 
