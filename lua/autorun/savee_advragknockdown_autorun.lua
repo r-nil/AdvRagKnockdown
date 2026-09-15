@@ -2282,6 +2282,7 @@ else
 
     end)
 
+    --[[
     local function doWeaponCalcView(wep, vm, pos, ang)
         if wep.CalcViewModelView then 
             pos, ang = wep:CalcViewModelView(vm, pos, ang, pos, ang)
@@ -2290,6 +2291,7 @@ else
         end
         return pos, ang
     end
+    ]]
 
 
     hook.Add("CalcViewModelView", "Savee_AdvRagKnockdown_CTRLHook", function(wep, vm, oldPos, oldAng, pos, ang, ...)
@@ -2301,13 +2303,14 @@ else
             local lerp = (ct - calcview_last_stored) / calcview_transtime
 
             if calcview_last_stored + calcview_transtime < ct then return end
-            pos = LerpVector(lerp, calcview_last_pos, pos)
+            pos:Set(LerpVector(lerp, calcview_last_pos, pos))
 
-            if IsValid(wep) then
-                pos, ang = doWeaponCalcView(wep, vm, pos, ang)
-            end
+            ---if IsValid(wep) then
+            ---    pos, ang = doWeaponCalcView(wep, vm, pos, ang)
+            ---end
             
-            return pos, ang
+            --return pos, ang
+            return
         end
         return self:CalcViewModelView(wep, vm, oldPos, oldAng, pos, ang, ...)
     
@@ -2325,7 +2328,14 @@ else
     hook.Add("PreDrawViewModel","Savee_AdvRagKnockdown_CTRLHook", function(vm,ply,wep,flags)
         local self = getController(LocalPlayer():GetViewEntity())
         if returnCheck(self) then return end
+        self:PreDrawViewModel(vm,ply,wep,flags)
         return self:PreDrawPlayerHands(vm,vm,ply,wep)
+    end)
+
+    hook.Add("PostDrawViewModel","Savee_AdvRagKnockdown_CTRLHook", function(vm,...)
+        local self = getController(LocalPlayer():GetViewEntity())
+        if returnCheck(self) then return end
+        self:PostDrawViewModel(vm,...)
     end)
 
     -- EF_BONEMERGE特有的双绘制

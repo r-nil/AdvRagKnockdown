@@ -3584,9 +3584,16 @@ function ENT:CalcView(ply, pos, ang, fov)
     return view
 
 end
+
+ENT.VM_Wall = 0
 function ENT:CalcViewModelView(wep, vm, oldPos, oldAng, pos, ang)
 
     --do return end
+
+    local op = oldPos
+    local oa = oldAng
+    local p = pos
+    local a = ang
 
     local ply = LocalPlayer()
 
@@ -3651,6 +3658,7 @@ function ENT:CalcViewModelView(wep, vm, oldPos, oldAng, pos, ang)
     --ang.r = 0
     --print(ang)
 
+    --[[
     if IsValid(wep) then
         if wep.CalcViewModelView then 
             pos, ang = wep:CalcViewModelView(vm, pos, ang, pos, ang)
@@ -3658,13 +3666,26 @@ function ENT:CalcViewModelView(wep, vm, oldPos, oldAng, pos, ang)
             pos, ang = wep:GetViewModelPosition(pos, ang) 
         end
     end
+    ]]
     --local _, delta = WorldToLocal(vector_origin, angle_zero, eyepos, eyeang)
     --print(self:GetRArmDelta())
     local rArmDelta = self:GetRArmDelta()
     self.SmoothedRArmDelta = math.Approach(self.SmoothedRArmDelta or rArmDelta, rArmDelta, FrameTime())
 
-    return pos, LerpAngle(self.SmoothedRArmDelta, ang, hang)
+    --return pos, LerpAngle(self.SmoothedRArmDelta, ang, hang)
 
+    local walltr = util.TraceLine({
+        start = pos,endpos = pos + ang:Forward() * 14,
+        filter = {self,self:GetRagdoll()},
+    })
+    self.VM_Wall = Lerp(FrameTime() * 7,self.VM_Wall,1 - walltr.Fraction)
+
+    pos:Sub(ang:Forward() * self.VM_Wall * 6)
+
+    op:Set(pos)
+    p:Set(pos)
+    oa:Set(ang)
+    a:Set(ang)
 end
 
 local cachedHandModel = ""
@@ -3793,6 +3814,17 @@ function ENT:PreDrawPlayerHands(hands, vm, ply, wep)
         ]]
     end
 
+end
+
+function ENT:PreDrawViewModel(vm)
+    local lighting = render.ComputeLighting(MainEyePos())
+    render.SuppressEngineLighting(true)
+    render.ResetModelLighting(lighting.x,lighting.y,lighting.z)
+end
+
+function ENT:PostDrawViewModel(vm)
+    render.SuppressEngineLighting(false)
+    render.ResetModelLighting(1,1,1)
 end
 
 -- 客户端玩意
