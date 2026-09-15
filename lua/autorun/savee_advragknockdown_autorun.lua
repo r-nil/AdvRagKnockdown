@@ -2317,19 +2317,17 @@ else
     end)
 
     -- 實際上我們應該去動ViewModel而不是Hands
-    --[[
     hook.Add("PreDrawPlayerHands", "Savee_AdvRagKnockdown_CTRLHook", function(...)
         local self = getController(LocalPlayer():GetViewEntity())
         if returnCheck(self) then return end
         return self:PreDrawPlayerHands(...)
     end)
-    ]]
 
     hook.Add("PreDrawViewModel","Savee_AdvRagKnockdown_CTRLHook", function(vm,ply,wep,flags)
         local self = getController(LocalPlayer():GetViewEntity())
         if returnCheck(self) then return end
-        self:PreDrawViewModel(vm,ply,wep,flags)
-        return self:PreDrawPlayerHands(vm,vm,ply,wep)
+        return self:PreDrawViewModel(vm,ply,wep,flags)
+        --return self:PreDrawPlayerHands(vm,vm,ply,wep)
     end)
 
     hook.Add("PostDrawViewModel","Savee_AdvRagKnockdown_CTRLHook", function(vm,...)

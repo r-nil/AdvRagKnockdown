@@ -3693,12 +3693,7 @@ local cachedHandData = {}
 local cachedHandBoneWhitelist = {}
 --local cachedHandBoneChildren = {}
 
--- 你会想要把SVMAL的系统搬过来
--- 出于对双枪的兼容性(不, 实际上不兼容)
-function ENT:PreDrawPlayerHands(hands, vm, ply, wep)
-
-    --do return end
-
+function ENT:MergeHands(hands)
     local ply = LocalPlayer()
 
     if not IsValid(ply) or self:GetOwner() ~= ply or (IsValid(ply:GetViewEntity()) and ply:GetViewEntity() ~= ply) then return end
@@ -3813,6 +3808,15 @@ function ENT:PreDrawPlayerHands(hands, vm, ply, wep)
         end
         ]]
     end
+end
+
+-- 你会想要把SVMAL的系统搬过来
+-- 出于对双枪的兼容性(不, 实际上不兼容)
+function ENT:PreDrawPlayerHands(hands, vm, ply, wep)
+
+    --do return end
+    self:MergeHands(hands)
+    
 
 end
 
@@ -3820,6 +3824,8 @@ function ENT:PreDrawViewModel(vm)
     local lighting = render.ComputeLighting(MainEyePos())
     render.SuppressEngineLighting(true)
     render.ResetModelLighting(lighting.x,lighting.y,lighting.z)
+
+    self:MergeHands(vm)
 end
 
 function ENT:PostDrawViewModel(vm)
