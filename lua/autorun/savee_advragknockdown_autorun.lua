@@ -559,7 +559,7 @@ funchooks.Add("Player.GetShootPos", "Savee_AdvRagKnockdown_Sync", function(ply, 
     local rag = ctrl:GetRagdoll()
 
     local wep = ply:GetActiveWeapon()
-    local nonFirearm = doOriginalHTs[IsValid(wep) and wep:GetHoldType() or ""]
+    local nonFirearm = doOriginalHTs[IsValid(wep) and Rnil_AdvRagKnockdown_GetHoldType(wep) or ""]
 
     if nonFirearm then return ply:EyePos(raw, ...) end
     --print(nonFirearm)
@@ -2023,7 +2023,7 @@ if SERVER then
                 cmd:RemoveKey(key)
             end
             
-            local ht = wep:GetHoldType()
+            local ht = Rnil_AdvRagKnockdown_GetHoldType(wep)
             if cmd:KeyDown(IN_ATTACK) and (meleeHTs[ht] or (wep:Clip1() == 0 and blackListedHTs[ht])) then
                 ctrl:AddKeyInput(IN_ATTACK)
                 cmd:RemoveKey(IN_ATTACK)
@@ -2234,7 +2234,7 @@ else
                 cmd:RemoveKey(IN_RELOAD)
             end
             
-            local ht = wep:GetHoldType()
+            local ht = Rnil_AdvRagKnockdown_GetHoldType(wep)
             if cmd:KeyDown(IN_ATTACK) then
                 ctrl:AddKeyInput(IN_ATTACK)
                 if (wep:Clip1() == 0 and blackListedHTs[ht]) then
@@ -2481,6 +2481,10 @@ else
 end
 
 Savee_AdvRagKnockdown_GetController = getController
+Rnil_AdvRagKnockdown_GetHoldType = function(wep)
+    return wep.HoldType or wep:GetHoldType()
+end
+
 --[[local f = file.Open("models/savee/ocs/savee39672/nellie.phy", "r", "GAME")
 f:Write("FUCKYOU")
 f:Close()]]

@@ -1598,7 +1598,7 @@ function ENT:Think()
     
     if IsValid(wep) then
         local wepHT
-        wepHT = wep:GetHoldType()
+        wepHT = Rnil_AdvRagKnockdown_GetHoldType(wep)
 
         if noAimHTs[wepHT] then
             wep:SetNextPrimaryFire(ct + 0.2)
@@ -1636,7 +1636,7 @@ function ENT:Think()
             self:SetCachedVar("NPC_MoveGoal", goal, 1)
             self:SetCachedVar("NPC_HasMoveGoal", hasGoal, math.random(2, 4))
 
-            local noArm = noAimHTs[IsValid(wep) and wep:GetHoldType() or ""]
+            local noArm = noAimHTs[IsValid(wep) and Rnil_AdvRagKnockdown_GetHoldType(wep) or ""]
             self:SetCachedVar("NPC_ShouldRHand", self:GetCachedVar("NPC_ShouldRHand", not self:GetCachedVar("NPC_ShouldRHand")), noArm and 0.8 or 0.4)
         else
             self:SetCachedVar("NPC_HasMoveGoal", hasGoal, 0.1)
@@ -1720,7 +1720,7 @@ function ENT:Think()
 
     if not IsValid(fakePly) then return end
     local wep = own:GetActiveWeapon()
-    local wepHT = IsValid(wep) and wep:GetHoldType() or "normal"
+    local wepHT = IsValid(wep) and Rnil_AdvRagKnockdown_GetHoldType(wep) or "normal"
     --own:SetActivity((IsValid(wep) and wepHT == "shotgun") and ACT_MP_CROUCH_IDLE or ACT_MP_STAND_IDLE)
     --fakePly:SetPos(self:GetPos() + Vector(0, 0, 30))
     --local _, ang = LocalToWorld(vector_origin, own:EyeAngles(), pelvis:GetPos(), pelvis:GetAngles())
@@ -1935,7 +1935,7 @@ function ENT:Think()
             --print(self, "我快起来了", own, rag)
 
             local trans = wep.TranslateActivity
-            local selectedACT = IsValid(wep) and actIndex[wep:GetHoldType()] or ACT_HL2MP_IDLE
+            local selectedACT = IsValid(wep) and actIndex[Rnil_AdvRagKnockdown_GetHoldType(wep)] or ACT_HL2MP_IDLE
             local rawACT = in_duck and ACT_MP_CROUCH_IDLE or ACT_MP_STAND_IDLE
             -- weapon_base/sh_anims.lua
             if in_duck then selectedACT = selectedACT + 3 end
@@ -2118,7 +2118,7 @@ function ENT:DealWithAnims(isPly, aimingWeapon, noArm, wepHT, isMeleeHT)
 
             if sync then
                 local trans = wep.TranslateActivity
-                local selectedACT = IsValid(wep) and actIndex[wep:GetHoldType()] or ACT_HL2MP_IDLE
+                local selectedACT = IsValid(wep) and actIndex[Rnil_AdvRagKnockdown_GetHoldType(wep)] or ACT_HL2MP_IDLE
                 local rawACT = in_duck and ACT_MP_CROUCH_IDLE or ACT_MP_STAND_IDLE
     
                 if in_duck then selectedACT = selectedACT + 3 end
@@ -2833,7 +2833,7 @@ function ENT:Tick()
     local caches = self.Caches
 
     if IsValid(wep) then
-        wepHT = wep:GetHoldType()
+        wepHT = Rnil_AdvRagKnockdown_GetHoldType(wep)
         noArm, isMeleeHT = noAimHTs[wepHT] or (meleeHTs[wepHT] and not aimingWeapon), meleeHTs[wepHT]
         --print(noArm, wepHT)
     elseif not isPly and not own:CapabilitiesHas(CAP_USE_WEAPONS) then
@@ -3556,7 +3556,7 @@ function ENT:CalcView(ply, pos, ang, fov)
         end
         --print(1)
 
-        wepHT = wep:GetHoldType()
+        wepHT = Rnil_AdvRagKnockdown_GetHoldType(wep)
         noArm = noAimHTs[wepHT] or (wep:IsScripted() and wep.ViewModel == "") --, isMeleeHT = noAimHTs[wepHT], meleeHTs[wepHT]
     end
 
@@ -3624,7 +3624,7 @@ function ENT:CalcViewModelView(wep, vm, oldPos, oldAng, pos, ang)
     -- https://github.com/ValveSoftware/source-sdk-2013/blob/c623a7c30d5cb7275cc64ed0b866f61f4a64c6eb/src/game/client/c_baseviewmodel.cpp#L55
     local fov = wep.ViewModelFOV or GetConVar("viewmodel_fov"):GetInt()
     --local wepFOV = wep.TranslateFOV and wep:TranslateFOV() or GetConVar("viewmodel_fov"):GetInt()
-    local pFOV = ply:GetFOV()
+    local pFOV = ply:GetFOV() * 0.95
     local worldX = math.tan(pFOV * math.pi / 360)
     local viewX = math.tan(fov * math.pi / 360)
 
