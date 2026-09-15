@@ -2179,6 +2179,7 @@ else
     end)
 
     local last_stored_roll = 0
+    local rollvel = 0
     hook.Add("StartCommand", "Savee_AdvRagKnockdown_RagOperation", function(ply, cmd)
         ---@type Entity
         local ctrl = getController(ply)
@@ -2189,6 +2190,8 @@ else
 
         local oldAng = ctrl:GetAimEyeAngles()
         local wep = ply:GetActiveWeapon()
+
+        local valid = cmd:CommandNumber() ~= 0
 
         -- 原版武器兼容, 虽然你无论怎么压枪弹道都是往上飘的就是了
         if IsValid(wep) and not wep:IsScripted() and last_stored_roll ~= 0 and oldAng.r == 0 then
@@ -2201,10 +2204,16 @@ else
         if ctrl:GetParent() ~= ctrl:GetRagdoll() then
             oldAng.r = math.Approach(oldAng.r, 0, 15)
         elseif cmd:KeyDown(IN_MOVELEFT) then
-            oldAng = (oldAng - Angle(0, 0, 90) * conscLerp * FrameTime())
+            --oldAng = (oldAng - Angle(0, 0, 45) * conscLerp * FrameTime())
+            if valid then rollvel = Lerp(FrameTime() * 7,rollvel,-1) end
         elseif cmd:KeyDown(IN_MOVERIGHT) then
-            oldAng = (oldAng + Angle(0, 0, 90) * conscLerp * FrameTime())
+            --oldAng = (oldAng + Angle(0, 0, 45) * conscLerp * FrameTime())
+            if valid then rollvel = Lerp(FrameTime() * 7,rollvel,1) end
         end
+
+        oldAng.r = oldAng.r + rollvel * FrameTime() * 90
+        if valid then rollvel = rollvel * math.max(0,1 - FrameTime() * 7) end
+
         cmd:SetViewAngles(oldAng, true)
         last_stored_roll = oldAng.r
 
@@ -2321,6 +2330,12 @@ else
         local self = getController(LocalPlayer():GetViewEntity())
         if returnCheck(self) then return end
         return self:PreDrawPlayerHands(...)
+    end)
+
+    hook.Add("PostDrawPlayerHands", "Savee_AdvRagKnockdown_CTRLHook", function(...)
+        local self = getController(LocalPlayer():GetViewEntity())
+        if returnCheck(self) then return end
+        return self:PostDrawPlayerHands(...)
     end)
 
     hook.Add("PreDrawViewModel","Savee_AdvRagKnockdown_CTRLHook", function(vm,ply,wep,flags)

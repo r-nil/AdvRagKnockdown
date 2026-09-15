@@ -3446,6 +3446,7 @@ local function clampAng(ang, min, max)
 end
 
 local deltaAng = Angle(75, 75, 0)
+local aimdelta = 0
 function ENT:CalcView(ply, pos, ang, fov)
 
     --do return end
@@ -3480,16 +3481,18 @@ function ENT:CalcView(ply, pos, ang, fov)
     --ply:SetViewPunchAngles(LerpAngle(0.5, viewPunch, Angle()))
 
     if (self:GetAimingWeapon() or ply:KeyDown(IN_ATTACK) or ply:KeyDown(IN_ATTACK2)) then
-        --print("FUCK")
-
-        local aea = self:GetAimEyeAngles()
-        aea:Normalize()
-
-        -- 高效(?), 相比下面那坨玩意
-        local _, wtl = WorldToLocal(vector_origin, aea, vector_origin, eyeang)
-        _, ang = LocalToWorld(vector_origin, clampAng(wtl, -deltaAng, deltaAng), vector_origin, ang)
-    
+        aimdelta = Lerp(FrameTime() * 7,aimdelta,1)
+    else
+        aimdelta = Lerp(FrameTime() * 3,aimdelta,0)
     end
+
+    local aea = self:GetAimEyeAngles()
+    aea:Normalize()
+
+    -- 高效(?), 相比下面那坨玩意
+    local _, wtl = WorldToLocal(vector_origin, aea, vector_origin, eyeang)
+    local _, newang = LocalToWorld(vector_origin, clampAng(wtl, -deltaAng, deltaAng), vector_origin, ang)
+    ang:Set(LerpAngle(aimdelta,ang,newang))
 
     --ang = ang + viewPunch
     _, ang = LocalToWorld(vector_origin, viewPunch, vector_origin, ang)
@@ -3810,6 +3813,23 @@ function ENT:MergeHands(hands)
     end
 end
 
+local directions = {
+    [BOX_FRONT] = Vector(1,0,0),
+    [BOX_BACK] = Vector(-1,0,0),
+    [BOX_RIGHT] = Vector(0,1,0),
+    [BOX_LEFT] = Vector(0,-1,0),
+    [BOX_TOP] = Vector(0,0,1),
+    [BOX_BOTTOM] = Vector(0,0,-1)
+}
+local do_lighting = function(pos,ang)
+    for box,dir in ipairs(directions) do
+        local dir = Vector(dir)
+        dir:Rotate(ang)
+        local lighting = render.ComputeLighting(MainEyePos(),dir)
+        render.SetModelLighting(box,lighting.x,lighting.y,lighting.z)
+    end 
+end
+
 -- 你会想要把SVMAL的系统搬过来
 -- 出于对双枪的兼容性(不, 实际上不兼容)
 function ENT:PreDrawPlayerHands(hands, vm, ply, wep)
@@ -3817,20 +3837,32 @@ function ENT:PreDrawPlayerHands(hands, vm, ply, wep)
     --do return end
     self:MergeHands(hands)
     
-
+    --local lighting = render.ComputeLighting(MainEyePos())
+    render.SuppressEngineLighting(true)
+    --render.ResetModelLighting(lighting.x,lighting.y,lighting.z)
+    do_lighting(MainEyePos(),MainEyeAngles())
+    render.SetLightingOrigin(MainEyePos())
 end
 
 function ENT:PreDrawViewModel(vm)
-    local lighting = render.ComputeLighting(MainEyePos())
+    --local lighting = render.ComputeLighting(MainEyePos())
     render.SuppressEngineLighting(true)
-    render.ResetModelLighting(lighting.x,lighting.y,lighting.z)
+    --render.ResetModelLighting(lighting.x,lighting.y,lighting.z)
+    do_lighting(MainEyePos(),MainEyeAngles())
 
     self:MergeHands(vm)
+    --render.SetLightingOrigin(MainEyePos())
+    render.BindLocalCubemap( "editor/cubemap" )
 end
 
 function ENT:PostDrawViewModel(vm)
-    render.SuppressEngineLighting(false)
     render.ResetModelLighting(1,1,1)
+    render.SuppressEngineLighting(false)
+end
+
+function ENT:PostDrawPlayerHands(hands)
+    render.ResetModelLighting(1,1,1)
+    render.SuppressEngineLighting(false)
 end
 
 -- 客户端玩意
