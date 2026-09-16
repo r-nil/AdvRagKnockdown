@@ -3717,6 +3717,7 @@ function ENT:MergeHands(hands)
         wep:DoLHIK()
     end
     hands:SetupBones()
+    rag:SetupBones()
 
     -- FROM SVMAL
     -- 是的我抄我自己
@@ -3752,36 +3753,24 @@ function ENT:MergeHands(hands)
         cachedHandModel = mdl
     end
 
-    --local oldBones = {}
+    local oldBones = {}
+    local resolve = {}
+    local newBones = {}
     for bone = 0, hands:GetBoneCount() - 1 do
         local name = hands:GetBoneName(bone)
 
         --print(name)
         if not cachedHandBoneWhitelist[bone] then continue end
 
-        --hands:CopyBoneMatrix(bone, mtx)
-        --oldBones[name] = {pos = mtx:GetTranslation(),ang = mtx:GetAngles()}
+        hands:CopyBoneMatrix(bone, mtx)
+        oldBones[bone] = {pos = mtx:GetTranslation(),ang = mtx:GetAngles()}
 
         local bone2 = rag:LookupBone(name)
+        --print(name, bone2)
         -- 抽象, 理论上它们都应存在
-        if not bone2 then
-            local parent = hands:GetBoneParent(bone)
-            local data = cachedHandData[parent]
-
-            if not data then return end
-
-            hands:CopyBoneMatrix(parent, mtx)
-			local lPos,lAng = LocalToWorld(data[1], data[2], mtx:GetTranslation(), mtx:GetAngles())
-        
-            hands:CopyBoneMatrix(bone, mtx)
-            local oldPos, oldAng = mtx:GetTranslation(), mtx:GetAngles()
-            mtx:SetTranslation(LerpVector(lArmDelta, oldPos, lPos))
-            mtx:SetAngles(LerpAngle(lArmDelta, oldAng, lAng))
-            
-            hands:SetBoneMatrix(bone, mtx)
+        if not bone2 or rag:GetBoneName(bone2) == "__INVALIDBONE__" then
+            table.insert(resolve,bone)
             continue
-        --elseif name:lower():match("finger") then
-        --    continue
         end
 
         rag:CopyBoneMatrix(bone2, mtx)
@@ -3792,6 +3781,7 @@ function ENT:MergeHands(hands)
         local newpos,newang = LerpVector(lArmDelta, oldpos, pos),LerpAngle(lArmDelta, oldang, ang)
         mtx:SetTranslation(newpos)
         mtx:SetAngles(newang)
+        newBones[bone] = {pos = pos,ang = ang}
 
         hands:SetBoneMatrix(bone, mtx)
         --[[
@@ -3811,6 +3801,35 @@ function ENT:MergeHands(hands)
         end
         ]]
     end
+
+    for _,bone in ipairs(resolve) do
+        --print(name .. " is missing from ragdoll")
+        local parent = hands:GetBoneParent(bone)
+        --local data = cachedHandData[parent]
+
+        --if not data then return end
+
+        --hands:CopyBoneMatrix(parent, mtx)
+        --local lPos,lAng = LocalToWorld(data[1], data[2], mtx:GetTranslation(), mtx:GetAngles())
+    --
+        --hands:CopyBoneMatrix(bone, mtx)
+        --local oldPos, oldAng = mtx:GetTranslation(), mtx:GetAngles()
+        --mtx:SetTranslation(LerpVector(lArmDelta, oldPos, lPos))
+        --mtx:SetAngles(LerpAngle(lArmDelta, oldAng, lAng))
+        --
+        --hands:SetBoneMatrix(bone, mtx)
+
+        hands:CopyBoneMatrix(bone, mtx)
+        local parentdata = oldBones[parent]
+        local lPos,lAng = WorldToLocal(parentdata.pos,parentdata.ang, mtx:GetTranslation(), mtx:GetAngles())
+        local oldPos, oldAng = mtx:GetTranslation(), mtx:GetAngles()
+        local newPos, newAng = LocalToWorld(lPos,lAng, newBones[parent].pos, newBones[parent].ang)
+        mtx:SetTranslation(LerpVector(lArmDelta, oldPos, newPos))
+        mtx:SetAngles(LerpAngle(lArmDelta, oldAng, newAng))
+        hands:SetBoneMatrix(bone, mtx)
+        newBones[bone] = {pos = newPos,ang = newAng}
+    end
+
 end
 
 local directions = {
