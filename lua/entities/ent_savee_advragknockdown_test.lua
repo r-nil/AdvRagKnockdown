@@ -28,7 +28,7 @@ ENT.PrintName = "test"
 ENT.AutomaticFrameAdvance = true
 
 ENT.Category = "Savee Stuffs - CONCEPTS"
-ENT.Spawnable = true
+ENT.Spawnable = false
 
 
 function ENT:Initialize()

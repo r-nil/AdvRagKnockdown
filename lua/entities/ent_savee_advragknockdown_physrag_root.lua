@@ -7,7 +7,7 @@ ENT.Type = "anim"
 
 ENT.PrintName = "[ARKD]布娃娃主体"
 ENT.Category = "Savee Stuffs - CONCEPTS"
-ENT.Spawnable = true
+ENT.Spawnable = false
 
 
 function ENT:Initialize()

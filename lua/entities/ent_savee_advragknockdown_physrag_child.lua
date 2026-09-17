@@ -4,3 +4,5 @@ ENT.Type = "anim"
 
 ENT.PrintName = "[ARKD]布娃娃肢体"
 ENT.Category = "Savee Stuffs - CONCEPTS"
+
+ENT.Spawnable = false

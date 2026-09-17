@@ -20,6 +20,11 @@ local GAMEMODES = {
 
 AddCSLuaFile()
 
+if not funchooks then
+    -- 我們運行的太快了,funchooks都還沒加載
+    include("autorun/_sh_saveestuffs_funchooks.lua")
+end
+
 Rnil_ADVRAGKNOCKDOWN_SB = GAMEMODES[engine.ActiveGamemode()]
 SAVEE_ADVRAGKNOCKDOWN_CONTROLLERS = SAVEE_ADVRAGKNOCKDOWN_CONTROLLERS or {}
 
@@ -875,7 +880,7 @@ funchooks.Add("Entity.IsOnGround", "Savee_AdvRagKnockdown_Sync", function(ent, .
     local ctrl = getController(ent)
     if not IsValid(ctrl) then return __undetoured(ent, ...) end
 
-    return ctrl:GetRagdoll():IsOnGround(...)
+    return ctrl:GetNW2Bool("Savee_AdvRagKnockdown_OnGround")
 end)
 funchooks.Add("Entity.OnGround", "Savee_AdvRagKnockdown_Sync", function(ent, ...)
     if ent:IsRagdoll() then return __undetoured(ent, ...) end
@@ -883,7 +888,7 @@ funchooks.Add("Entity.OnGround", "Savee_AdvRagKnockdown_Sync", function(ent, ...
     local ctrl = getController(ent)
     if not IsValid(ctrl) then return __undetoured(ent, ...) end
 
-    return ctrl:GetRagdoll():OnGround(...)
+    return ctrl:GetNW2Bool("Savee_AdvRagKnockdown_OnGround")
 end)
 
 funchooks.Add("Player.GetAimVector", "Savee_AdvRagKnockdown_Sync", function(ply, raw, ...)
@@ -2137,6 +2142,9 @@ else
         local rag = ctrl:GetRagdoll()
         deadRag:SetPos(rag:GetPos())
 
+        -- 速度等於距離除於時間
+        local vel = (ctrl:GetPos() - ctrl.LastPosition) / (CurTime() - ctrl.LastPosition_Time)
+
         for i = 0, deadRag:GetPhysicsObjectCount() - 1 do
             local pObj= deadRag:GetPhysicsObjectNum(i)
             local pos, ang = rag:GetBonePosition(deadRag:TranslatePhysBoneToBone(i))
@@ -2144,7 +2152,7 @@ else
             if not IsValid(pObj) or not pos then continue end
             pObj:SetPos(pos)
             pObj:SetAngles(ang)
-            pObj:SetVelocityInstantaneous(rag:GetVelocity())
+            pObj:SetVelocity(vel)
         end
         --print(deadRag:GetPhysicsObjectNum(1))
     end)

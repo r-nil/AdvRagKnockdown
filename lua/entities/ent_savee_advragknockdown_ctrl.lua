@@ -254,6 +254,12 @@ local deltaedHT = {
     ["shotgun"] = true,
 }
 
+--hax
+local dualHTs = {
+    ["duel"] = true,
+    ["dual"] = true
+}
+
 local actIndex = {
 	["pistol"]		= ACT_HL2MP_IDLE_PISTOL,
 	["smg"]			= ACT_HL2MP_IDLE_SMG1,
@@ -1095,7 +1101,7 @@ function ENT:Initialize()
         local di = DamageInfo()
         self.DI_MarkedAsTaken[di] = true
         di:SetDamage(dmg * (official and 1 or 0.2) * hgMul)
-        di:SetDamageType(DMG_CRUSH)
+        di:SetDamageType(data.OurOldVelocity.z < 10 and DMG_FALL or DMG_CRUSH)
 
         local pAtk = ent:GetPhysicsAttacker()
         di:SetAttacker(IsValid(pAtk) and pAtk or ent)
@@ -2045,10 +2051,10 @@ local deltamul = getCV("performance_luacode_deltamul", "Float")
 
 local torsoang, torsoangdamp, torsospd, torsospddamp, torsodampfactor, torsodelta = 250, 150, 0, 0, 1, isSP and 0.07 or 0.1
 --local torsomovespd, torsomovespddamp, torsomovespddelta = 450, 450, 0.2
-local headang, headangdamp, headspd, headspddamp, headdampfactor, headdelta = 100, 200, 0, 0, 1, 0.07
+local headang, headangdamp, headspd, headspddamp, headdampfactor, headdelta = 100, 90, 0, 0, 0.9, 0.07
 local handang, handangdamp, handspd, handspddamp, handdampfactor, handdelta = 350, 250, 0, 0, 0.8, 0.08
 local handaimang, handaimangdamp, handaimspd, handaimspddamp, handaimdampfactor, handaimdelta = 450, 350, 0, 0, 0.8, isSP and 0.05 or 0.08
-local armaimang, armaimangdamp, armaimspd, armaimspddamp, armaimdampfactor, armaimdelta = 550, 650, 0, 0, 0.8, 0.1
+local armaimang, armaimangdamp, armaimspd, armaimspddamp, armaimdampfactor, armaimdelta = 1500, 20, 0, 0, 0.8, 0.1
 local pelvisang, pelvisangdamp, pelvisspd, pelvisspddamp, pelvisdampfactor, pelvisdelta = 0, 10, 0, 0, 0.8, 0.15
 local legang, legangdamp, legspd, legspddamp, legsdampfactor, legsdelta = 25, 15, 0, 0, 0.5, 0.2
 
@@ -2398,7 +2404,7 @@ function ENT:DealWithAnims(isPly, aimingWeapon, noArm, wepHT, isMeleeHT)
                 maxspeeddamp = 0,
                 maxangular = (not nonFirearm and 10 or torsoang),
                 maxangulardamp = (not nonFirearm and 10 or torsoangdamp),
-                dampfactor = 0.8,
+                dampfactor = 0.9,
                 delta = 0.1,
                 noCorrection = true,
             }
@@ -2451,11 +2457,12 @@ function ENT:DealWithAnims(isPly, aimingWeapon, noArm, wepHT, isMeleeHT)
             local angLUpperArm, angLForeArm = calcBasicArmIK(ragLUArmPos, lhToLocalPos, var + exRotate, Angle(0, 0, -90), aea, own)
             local angRUpperArm, angRForeArm = calcBasicArmIK(ragRUArmPos, rhToLocalPos, -var + exRotate, Angle(0, 0, -90), aea, own)
 
+            local armdamp = 0
             shadowCtrls["ValveBiped.Bip01_L_UpperArm"] = {
                 --secondstoarrive = tickInterval / 10,
                 angle = angLUpperArm,
                 maxspeed = 0,
-                maxspeeddamp = 0,
+                maxspeeddamp = armdamp,
                 maxangular = armaimang * (larmWalling and 0 or 1),
                 maxangulardamp = armaimangdamp,
                 dampfactor = armaimdampfactor,
@@ -2466,7 +2473,7 @@ function ENT:DealWithAnims(isPly, aimingWeapon, noArm, wepHT, isMeleeHT)
                 --secondstoarrive = tickInterval / 10,
                 angle = angLForeArm,
                 maxspeed = 0,
-                maxspeeddamp = 0,
+                maxspeeddamp = armdamp,
                 maxangular = armaimang,
                 maxangulardamp = armaimangdamp,
                 dampfactor = armaimdampfactor,
@@ -2477,7 +2484,7 @@ function ENT:DealWithAnims(isPly, aimingWeapon, noArm, wepHT, isMeleeHT)
                 --secondstoarrive = tickInterval / 10,
                 angle = angRUpperArm,
                 maxspeed = 0,
-                maxspeeddamp = 0,
+                maxspeeddamp = armdamp,
                 maxangular = armaimang * (rarmWalling and 0 or 1),
                 maxangulardamp = armaimangdamp,
                 dampfactor = armaimdampfactor,
@@ -2488,7 +2495,7 @@ function ENT:DealWithAnims(isPly, aimingWeapon, noArm, wepHT, isMeleeHT)
                 --secondstoarrive = tickInterval / 10,
                 angle = angRForeArm,
                 maxspeed = 0,
-                maxspeeddamp = 0,
+                maxspeeddamp = armdamp,
                 maxangular = armaimang,
                 maxangulardamp = armaimangdamp,
                 dampfactor = armaimdampfactor,
@@ -2789,7 +2796,11 @@ end
 
 
 -- 2026/7/5 这里被改为只处理真正和Tick有关的东西以试图优化
+ENT.LastPosition = Vector()
 function ENT:Tick()
+
+    self.LastPosition = self:GetPos()
+    self.LastPosition_Time = CurTime()
 
     if CLIENT or self.Removing then return end
     
@@ -3251,7 +3262,7 @@ if SERVER then return end
 local noDrawBones = {
     "ValveBiped.Bip01_Head1",
     "ValveBiped.Bip01_L_UpperArm",
-    "ValveBiped.Bip01_R_UpperArm",
+    "ValveBiped.Bip01_R_UpperArm"
 }
 
 -- 这玩意就在客户端(也就是你)有
@@ -3289,9 +3300,9 @@ function ENT:Draw(fl)
             return
         end
 
-        if own:GetMoveParent() ~= rag then
-            --
-        end
+        --if own:GetMoveParent() ~= rag then
+        --    --
+        --end
 
         own:DrawModel(fl)
 
@@ -3300,10 +3311,10 @@ function ENT:Draw(fl)
     -- 多人兼容
     own.RenderOverride = func
 
-    timer.Simple(0, function()
-        if not IsValid(own) then return end
-        own.RenderOverride = func
-    end)
+    --timer.Simple(0, function()
+    --    if not IsValid(own) then return end
+    --    own.RenderOverride = func
+    --end)
 
 end
 
@@ -3385,6 +3396,7 @@ function ENT:CustomRagRenderOverride(fl)
         end
 
         for i = 0, self:GetBoneCount() - 1 do
+            --print(i)
             for _, id in ipairs(targetBIDs) do
                 if not boneHasParent(self, i, id) then continue end
                 ragNoDrawBones[i] = true
@@ -3404,7 +3416,7 @@ function ENT:CustomRagRenderOverride(fl)
         --stored[i] = self:GetBoneMatrix(i)
         own:CopyBoneMatrix(i, mtx)
         
-        if ragNoDrawBones[i] and ve == own and (shouldDrawVM or bName == "ValveBiped.Bip01_Head1") then
+        if bName:lower():match("head") or (ragNoDrawBones[i] and ve == own and shouldDrawVM) then
             mtx:Scale(Vector(huge, huge, huge))
         end
         self:SetBoneMatrix(i, mtx)
@@ -3582,6 +3594,7 @@ function ENT:CalcView(ply, pos, ang, fov)
         angles = self.LastEyeAng,
         fov = fov,
         drawviewer = not shouldDrawVM,
+        znear = 0.07
     }
 
     return view
