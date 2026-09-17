@@ -1,5 +1,5 @@
 # Requirement
-funchooks by Savee14702 - [here](https://github.com/Ec2dieBee/funchooks)  
+funchooks by Savee14702(edited by r-nil) - [here: https://github.com/r-nil/funchooks](https://github.com/r-nil/funchooks)  
 A functional brain that knows how to use git or github
 ---
 # Introduction
