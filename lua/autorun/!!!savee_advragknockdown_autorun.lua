@@ -109,7 +109,9 @@ local function addCallback(name, type, prefix)
 
     cvVars[key] = cv["Get" .. type](cv)
     cvars.AddChangeCallback(cvPrefix .. name, function()
-        cvVars[key] = cv["Get" .. type](cv)
+        timer.Simple(0,function()
+            cvVars[key] = cv["Get" .. type](cv)
+        end)
     end)
 end
 addCallback("cl_control_altaimkey", "Bool")
