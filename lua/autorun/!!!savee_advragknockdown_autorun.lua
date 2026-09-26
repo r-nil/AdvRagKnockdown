@@ -2272,7 +2272,6 @@ else
         if consc < 15 then cmd:ClearButtons() end
 
         inputs = ctrl.Inputs
-        local obuttons = inputs.Buttons
         inputs:FromCUserCMD(cmd)
 
         inputs:SetInputs(0)
