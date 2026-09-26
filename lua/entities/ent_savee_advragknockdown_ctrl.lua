@@ -653,7 +653,7 @@ ENT.RHand_GrabbingData = {}
 
 ENT.ReplacedConsts = {}
 
-ENT.KeyInputs = {}
+--ENT.KeyInputs = {}
 -- 用以解决30个插件不间断强奸EyePos造成的卡顿
 ENT.VarCaches = {}
 
@@ -881,6 +881,8 @@ function ENT:Initialize()
         end
         return
     end
+
+    self.Inputs = Rnil_AdvRagKnockdownInputsNew()
 
     --self:SetTransmitWithParent(true)
 
@@ -1216,6 +1218,8 @@ function ENT:Initialize()
     --own:SetViewEntity(rag)
     --self:SetPos(self:GetPos() + Vector(0, 0, 15))
 
+    self.LHandTryGrabbing = false
+    self.RHandTryGrabbing = false
 end
 
 function ENT:SetupDataTables()
@@ -1254,14 +1258,28 @@ function ENT:SetAimEyeAngles(ang)
     end
 end
 
-function ENT:AddKeyInput(key)
-    self.KeyInputs[key] = true
+--function ENT:AddKeyInput(key)
+--    self.KeyInputs[key] = true
+--end
+--
+--function ENT:HasKeyInput(key)
+--    local own = self:GetOwner()
+--    --own:ChatPrint(tostring(self.KeyInputs[key]))
+--    --own:ChatPrint(tostring(own:KeyDown(key)))
+--    return self.KeyInputs[key] or (own:IsPlayer() and own:KeyDown(key))
+--end
+
+function ENT:GetInputs()
+    return self.Inputs
 end
-function ENT:HasKeyInput(key)
-    local own = self:GetOwner()
-    --own:ChatPrint(tostring(self.KeyInputs[key]))
-    --own:ChatPrint(tostring(own:KeyDown(key)))
-    return self.KeyInputs[key] or (own:IsPlayer() and own:KeyDown(key))
+
+-- Rnil_AdvRagKnockdown_INPUTS
+function ENT:InputDown(IN)
+    return self:GetInputs():InputDown(IN)
+end
+
+function ENT:GetInfo(cv)
+    return self:GetOwner():IsNPC() and "" or self:GetOwner():GetInfo(cvPrefix .. cv)
 end
 
 function ENT:TryGetUp(animTbl, forced)
@@ -1403,7 +1421,7 @@ function ENT:RestorePlayerData()
     own:SetViewOffset(offset)
     if own:IsPlayer() then 
         ---@cast own Player
-        own:SetCurrentViewOffset(self:HasKeyInput(IN_DUCK) and own:GetViewOffsetDucked() or offset)
+        own:SetCurrentViewOffset(self:InputDown(Rnil_AdvRagKnockdown_INPUTS.DUCK) and own:GetViewOffsetDucked() or offset)
     end
     
     own:SetMoveType(self.m_iOwnMoveType or MOVETYPE_STEP)
@@ -1700,7 +1718,7 @@ function ENT:Think()
 
     -- 操作
 
-    if (not isPly and self:GetCachedVar("NPC_CanGetUpVar") or self:HasKeyInput(IN_JUMP)) and not self.GettingUp then
+    if (not isPly and self:GetCachedVar("NPC_CanGetUpVar") or self:InputDown(Rnil_AdvRagKnockdown_INPUTS.GETUP)) and not self.GettingUp then
         
         local besties = {}
         local _, pitch = rag:GetBonePosition(0)
@@ -1849,6 +1867,10 @@ function ENT:Think()
     end
 
     if consc < 25 then
+        self:SetAimingWeapon(false)
+    elseif self:InputDown(Rnil_AdvRagKnockdown_INPUTS.AIMING) then
+        self:SetAimingWeapon(true)
+    else
         self:SetAimingWeapon(false)
     end
 
@@ -2052,8 +2074,8 @@ local deltamul = getCV("performance_luacode_deltamul", "Float")
 local torsoang, torsoangdamp, torsospd, torsospddamp, torsodampfactor, torsodelta = 250, 150, 0, 0, 1, isSP and 0.07 or 0.1
 --local torsomovespd, torsomovespddamp, torsomovespddelta = 450, 450, 0.2
 local headang, headangdamp, headspd, headspddamp, headdampfactor, headdelta = 100, 90, 0, 0, 0.9, 0.07
-local handang, handangdamp, handspd, handspddamp, handdampfactor, handdelta = 350, 250, 0, 0, 0.8, 0.08
-local handaimang, handaimangdamp, handaimspd, handaimspddamp, handaimdampfactor, handaimdelta = 450, 350, 0, 0, 0.8, isSP and 0.05 or 0.08
+local handang, handangdamp, handspd, handspddamp, handdampfactor, handdelta = 350, 250, 50, 0, 0.8, 0.08
+local handaimang, handaimangdamp, handaimspd, handaimspddamp, handaimdampfactor, handaimdelta = 450, 350, 50, 0, 0.8, isSP and 0.05 or 0.08
 local armaimang, armaimangdamp, armaimspd, armaimspddamp, armaimdampfactor, armaimdelta = 1500, 20, 0, 0, 0.8, 0.1
 local pelvisang, pelvisangdamp, pelvisspd, pelvisspddamp, pelvisdampfactor, pelvisdelta = 0, 10, 0, 0, 0.8, 0.15
 local legang, legangdamp, legspd, legspddamp, legsdampfactor, legsdelta = 25, 15, 0, 0, 0.5, 0.2
@@ -2104,9 +2126,9 @@ function ENT:DealWithAnims(isPly, aimingWeapon, noArm, wepHT, isMeleeHT)
     local aea = self:GetAimEyeAngles()
     --print(own:GetGoalPos())
 
-    local in_forward = not isPly and caches.NPC_HasMoveGoal or self:HasKeyInput(IN_FORWARD)
+    local in_forward = not isPly and caches.NPC_HasMoveGoal or self:InputDown(Rnil_AdvRagKnockdown_INPUTS.FORWARD)
     --local in_back = self:HasKeyInput(IN_BACK)
-    local in_duck = self:HasKeyInput(IN_DUCK)
+    local in_duck = self:InputDown(Rnil_AdvRagKnockdown_INPUTS.DUCK)
 
     if self.GettingUp then
         local oldState = self.GettingUp_Crouch
@@ -2549,7 +2571,6 @@ function ENT:DealWithAnims(isPly, aimingWeapon, noArm, wepHT, isMeleeHT)
 
         lArmDeltaMax = Lerp(lArmDeltaMax + 0.25, 1, 0)
         rArmDeltaMax = Lerp((rArmDeltaMax + 0.15) ^ 2, 1, 0)
-        --print(lArmDeltaMax)
         if self.NextSetRArmDelta <= ct then
 
             local finalVar = math.Approach(oldRArm, rArmDeltaMax, 0.2)
@@ -2640,8 +2661,8 @@ function ENT:DealWithAnims(isPly, aimingWeapon, noArm, wepHT, isMeleeHT)
         self:SetLArmDelta(1)
         self:SetRArmDelta(1)
 
-        local lhand = (isPly and noArm) and self:HasKeyInput(IN_ATTACK) or in_forward
-        local rhand = self:HasKeyInput(IN_ATTACK2) or (not isPly and in_forward)
+        local lhand = (isPly and noArm) and self:InputDown(Rnil_AdvRagKnockdown_INPUTS.ATTACK) or in_forward
+        local rhand = self:InputDown(Rnil_AdvRagKnockdown_INPUTS.ATTACK2) or (not isPly and in_forward)
 
         local forward, right = aea:Forward() * 30 * mdlScale, aea:Right() * 5 * mdlScale
         local pos = eyepos + forward
@@ -2871,8 +2892,8 @@ function ENT:Tick()
     end
     own:SetPos(eyepos + (aea:Forward() * (isPly and 8 or 10)) * math.max(1, mdlScale), true)
 
-    local in_forward = not isPly and caches.NPC_HasMoveGoal or self:HasKeyInput(IN_FORWARD)
-    local in_back = self:HasKeyInput(IN_BACK)
+    local in_forward = not isPly and caches.NPC_HasMoveGoal or self:InputDown(Rnil_AdvRagKnockdown_INPUTS.FORWARD)
+    local in_back = self:InputDown(Rnil_AdvRagKnockdown_INPUTS.BACKWARD)
 
     local numpObjs = rag:GetPhysicsObjectCount()
     -- Breen.mdl
@@ -2991,6 +3012,33 @@ function ENT:Tick()
     local const = self.LHand_Grabbing
     local constR = self.RHand_Grabbing
 
+    local togglegrab = tobool(self:GetInfo("cl_control_togglegrab"))
+
+    local lkey = self:InputDown(Rnil_AdvRagKnockdown_INPUTS.SPEED)
+    local rkey = self:InputDown(Rnil_AdvRagKnockdown_INPUTS.WALK)
+
+    local lkey_pressed,rkey_pressed = false,false
+
+    if self.LastLGrabKey ~= lkey and lkey then
+        lkey_pressed = true
+    elseif self.LastRGrabKey ~= rkey and rkey then
+        rkey_pressed = true
+    end
+
+    if togglegrab then
+        if lkey_pressed then
+            self.LHandTryGrabbing = not self.LHandTryGrabbing
+        end
+
+        if rkey_pressed then
+            self.RHandTryGrabbing = not self.RHandTryGrabbing
+        end
+    end
+
+    self.LastLGrabKey = lkey
+    self.LastRGrabKey = rkey
+
+
     local crawlCond = not isPly and (ct - caches.NPC_LastGoalUpdate) <= 1
     local grabCond = not self.GettingUp and math.random(1, 45) <= stamina
     if not grabCond then
@@ -3006,7 +3054,7 @@ function ENT:Tick()
         self.RHand_NextGrab = ct + 1
         self.RHand_Grabbing_Broken = false
     end
-    local doLHand = grabCond and ((isPly and self:HasKeyInput(IN_SPEED) or (crawlCond and not self:GetCachedVar("NPC_ShouldRHand")))) and self.LHand_NextGrab <= ct
+    local doLHand = grabCond and (isPly and (self.LHandTryGrabbing or lkey) or (crawlCond and not self:GetCachedVar("NPC_ShouldRHand"))) and self.LHand_NextGrab <= ct
     --print(math.IsNearlyEqual(caches.NPC_LastGoalUpdate, ct + 0.6, 0.5), caches.NPC_LastGoalUpdate, ct + 0.6)
     --print(doLHand)
 
@@ -3058,8 +3106,13 @@ function ENT:Tick()
         --if IsValid(self.LHand_Grabbing_Winch) then self.LHand_Grabbing_Winch:Remove() end
         self.LHand_GrabbingWorld = false
         self.LHand_GrabbingData = {}
+        self.LHandTryGrabbing = false
         --caches.LastCrawl = ct
 
+    end
+
+    if togglegrab and not IsValid(self.LHand_Grabbing) and self.LHandTryGrabbing then
+        self.LHandTryGrabbing = false
     end
 
     --print(self.LHand_Grabbing_Winch:GetInternalVariable("m_start"))
@@ -3076,8 +3129,8 @@ function ENT:Tick()
     --self.DebugMdl:SetPos(grabtr.HitPos)
     local entR = grabtrR.HitWorld and Entity(0) or grabtrR.Entity
 
-    local doRHand = grabCond and ((isPly and self:HasKeyInput(IN_WALK)) or (crawlCond and self:GetCachedVar("NPC_ShouldRHand"))) and self.RHand_NextGrab <= ct
-
+    local doRHand = grabCond and ((isPly and (rkey or self.RHandTryGrabbing)) or (crawlCond and self:GetCachedVar("NPC_ShouldRHand"))) and self.RHand_NextGrab <= ct
+    --print(self:InputDown(Rnil_AdvRagKnockdown_INPUTS.WALK))
     --print(ent, IsValid(ent), grabtr.HitWorld)
     if (IsValid(entR) or entR:IsWorld()) and doRHand and not IsValid(constR) and noArm then
 
@@ -3102,7 +3155,6 @@ function ENT:Tick()
             wtlPos = wtl,
             pObjID = pObjID,
         }
-
     elseif IsValid(constR) and (not doRHand or not noArm) then
 
         --print("Remove")
@@ -3110,7 +3162,12 @@ function ENT:Tick()
         self.RHand_Grabbing_Broken = false
         self.RHand_GrabbingWorld = false
         self.RHand_GrabbingData = {}
+        self.RHandTryGrabbing = false
 
+    end
+
+    if togglegrab and not IsValid(self.RHand_Grabbing) and self.RHandTryGrabbing then
+        self.RHandTryGrabbing = false
     end
 
     local lWinch = self.LHand_Grabbing_Winch
@@ -3492,7 +3549,7 @@ function ENT:CalcView(ply, pos, ang, fov)
 
     --ply:SetViewPunchAngles(LerpAngle(0.5, viewPunch, Angle()))
 
-    if (self:GetAimingWeapon() or ply:KeyDown(IN_ATTACK) or ply:KeyDown(IN_ATTACK2)) then
+    if (self:GetAimingWeapon() or self:InputDown(Rnil_AdvRagKnockdown_INPUTS.ATTACK) or self:InputDown(Rnil_AdvRagKnockdown_INPUTS.ATTACK2)) then
         aimdelta = Lerp(FrameTime() * 7,aimdelta,1)
     else
         aimdelta = Lerp(FrameTime() * 3,aimdelta,0)
@@ -3732,6 +3789,14 @@ function ENT:MergeHands(hands)
     hands:SetupBones()
     rag:SetupBones()
 
+    --local fov = wep.ViewModelFOV or GetConVar("viewmodel_fov"):GetInt()
+    --local wepFOV = wep.TranslateFOV and wep:TranslateFOV() or GetConVar("viewmodel_fov"):GetInt()
+    --local pFOV = ply:GetFOV() * 0.95
+    --local worldX = math.tan(pFOV * math.pi / 360)
+    --local viewX = math.tan(fov * math.pi / 360)
+
+    --local factorX = 1--pFOV / fov--(worldX / viewX)
+
     -- FROM SVMAL
     -- 是的我抄我自己
     if cachedHandModel ~= mdl then
@@ -3792,6 +3857,7 @@ function ENT:MergeHands(hands)
         hands:CopyBoneMatrix(bone, mtx)
         local oldpos,oldang = mtx:GetTranslation(),mtx:GetAngles()
         local newpos,newang = LerpVector(lArmDelta, oldpos, pos),LerpAngle(lArmDelta, oldang, ang)
+        --newpos = MainEyePos() + (newpos - MainEyePos()) * factorX
         mtx:SetTranslation(newpos)
         mtx:SetAngles(newang)
         newBones[bone] = {pos = pos,ang = ang}
@@ -3836,11 +3902,13 @@ function ENT:MergeHands(hands)
         local parentdata = oldBones[parent]
         local lPos,lAng = WorldToLocal(parentdata.pos,parentdata.ang, mtx:GetTranslation(), mtx:GetAngles())
         local oldPos, oldAng = mtx:GetTranslation(), mtx:GetAngles()
-        local newPos, newAng = LocalToWorld(lPos,lAng, newBones[parent].pos, newBones[parent].ang)
-        mtx:SetTranslation(LerpVector(lArmDelta, oldPos, newPos))
-        mtx:SetAngles(LerpAngle(lArmDelta, oldAng, newAng))
+        local pos, ang = LocalToWorld(lPos,lAng, newBones[parent].pos, newBones[parent].ang)
+        local newPos = LerpVector(lArmDelta, oldPos, pos)
+        --newPos = MainEyePos() + (newPos - MainEyePos()) * factorX
+        mtx:SetTranslation(newPos)
+        mtx:SetAngles(LerpAngle(lArmDelta, oldAng, ang))
         hands:SetBoneMatrix(bone, mtx)
-        newBones[bone] = {pos = newPos,ang = newAng}
+        newBones[bone] = {pos = pos,ang = ang}
     end
 
 end

@@ -96,6 +96,7 @@ local clcv_ctrl_reversedaiming = CreateClientConVar(cvPrefix .. "cl_control_reve
 local clcv_ctrl_aim = CreateClientConVar(cvPrefix .. "cl_control_autoaim", "0", true, true, "[仅自定义按键可用时] 击倒时默认开启瞄准(0: 关闭, 1: 仅主动击倒, 2: 任何情况下被击倒(需要服务器打开相关设置!))", 0, 2) -- ToDo: 把2加上
 CreateClientConVar(cvPrefix .. "cl_control_altaimkey", "0", true, true, "[仅按住E可用时] 按住[慢走键](默认是LAlt)进行瞄准", 0, 1)
 CreateClientConVar(cvPrefix .. "cl_getup_smoothtransitioninterval", "0.15", true, true, "在起身后视角在和老视角和实际视角的过渡时间, 总而言之就是能让起身的视角转换看上去丝滑一点(我相信你不会把它改成1以上的值)", 0)
+local clcv_ctrl_togglegrab = CreateClientConVar(cvPrefix .. "cl_control_togglegrab", "0", true, true, "toggle grab", 0)
 --CreateClientConVar(cvPrefix .. "cl_contrl_rollspdmul_sprint", "1.5", true, true, "在起身后视角在和老视角和实际视角的过渡时间, 总而言之就是能让起身的视角转换看上去丝滑一点(我相信你不会把它改成1以上的值)", 0)
 --CreateClientConVar(cvPrefix .. "cl_contrl_rollspdmul_walk", "0.5", true, true, "在起身后视角在和老视角和实际视角的过渡时间, 总而言之就是能让起身的视角转换看上去丝滑一点(我相信你不会把它改成1以上的值)", 0)
 
@@ -174,21 +175,6 @@ local tickInterval = engine.TickInterval()
 local handPosDelta = Vector(16, 0, -4)
 
 local handlingKnockdownedCmd = false
-
---[[funchooks.Add("Entity.EyePos", "test1", function(self, ...)
-
-    --print("Ciall1o~")
-
-    return __undetoured(self, ...)
-
-end)
-funchooks.Add("Entity.EyePos", "test", function(self, ...)
-
-    --print("Ciall3o~")
-
-    return __undetoured(self, ...)
-
-end)]]
 
 ---@param ent Entity
 ---@param pos Vector
@@ -615,7 +601,7 @@ funchooks.Add("NPC.GetShootPos", "Savee_AdvRagKnockdown_Sync", function(ply, ...
 end)
 
 funchooks.Add("Entity.SetOwner", "Savee_AdvRagKnockdown_AntiBadCollision", function(ent, own, raw, ...)
-
+    if debug.getinfo(3,"nS").name and debug.getinfo(3,"nS").name:match("GiveStatus") then return __undetoured(ent, own, raw, ...) end
     if raw or not entTypeCheck(own) then return __undetoured(ent, own, raw, ...) end
     local ctrl = getController(own)
 
@@ -1208,17 +1194,95 @@ hook.Add("Tick", "Savee_AdvRagKnockdown_CtrlTick", function()
     end    
 end)
 
+local INPUTS = {
+    FORWARD = bit.lshift(1,0), --IN_FORWARD
+    BACKWARD = bit.lshift(1,1),
+    AIMING = bit.lshift(1,2),
+    ATTACK = bit.lshift(1,3),
+    ATTACK2 = bit.lshift(1,4),
+    DUCK = bit.lshift(1,5),
+    GETUP = bit.lshift(1,6),
+    SPEED = bit.lshift(1,7),
+    WALK = bit.lshift(1,8)
+}
+Rnil_AdvRagKnockdown_INPUTS = INPUTS
+
 hook.Add("CalcMainActivity", "Savee_AdvRagKnockdown_Correction", function(ply)
     local ctrl = getController(ply)
     if not IsValid(ctrl) then return end
 
-    return ctrl:HasKeyInput(IN_DUCK) and ACT_MP_CROUCH_IDLE or ACT_MP_STAND_IDLE, -1
+    return ctrl:InputDown(INPUTS.DUCK) and ACT_MP_CROUCH_IDLE or ACT_MP_STAND_IDLE, -1
 end)
+
+local inputsNew
+do
+    local inputs = {}
+
+    function inputs:Init()
+        self.Buttons = 0
+        self.Inputs = 0
+    end
+
+    function inputs:KeyDown(IN)
+        return bit.band(self.Buttons,IN) == IN
+    end
+
+    function inputs:InputDown(IN)
+        return bit.band(self.Inputs,IN) == IN
+    end
+
+    function inputs:SetInputs(inputs)
+        self.Inputs = inputs
+    end
+
+    function inputs:AddInput(inputs)
+        self:SetInputs(bit.bor(self.Inputs,inputs))
+    end
+
+    function inputs:SetButtons(buttons)
+        self.Buttons = buttons
+    end
+
+    function inputs:FromCUserCMD(cmd)
+        self:SetButtons(cmd:GetButtons())
+    end
+
+    function inputs:WriteNet()
+        net.WriteUInt(self.Inputs,13)
+        net.WriteUInt(self.Buttons,13)
+    end
+
+    function inputs:ReadNet()
+        --直接設置,別用SetButtons, SetInputs之類的東西避免造成一些問題
+        self.Inputs = net.ReadUInt(13)
+        self.Buttons = net.ReadUInt(13)
+    end
+
+    inputs.__index = inputs
+
+    inputsNew = function()
+        local obj = setmetatable({},inputs)
+        obj:Init()
+        return obj
+    end
+end
+
+Rnil_AdvRagKnockdownInputsNew = inputsNew
+
+local blackListedInputs_NonAiming = {
+    IN_ATTACK2,
+    IN_RELOAD,
+}
+local blackListedInputs = {
+    IN_SPEED,
+    IN_DUCK,
+}
     
 if SERVER then
 
     --util.AddNetworkString("Savee_AdvRagKnockdown_UpdateRagLimbs")
     util.AddNetworkString("Savee_AdvRagKnockdown_OperationMsg")
+    util.AddNetworkString("Rnil_AdvRagKnockdown_Inputs")
 
     --[[---@param ctrl Entity
     ---@param rag Entity
@@ -1634,18 +1698,27 @@ if SERVER then
             if IsValid(ctrl) then ctrl:CancelGetUp() return end
             doKnockdown(p)
             -- 击倒我
-        elseif IsValid(ctrl) then
-            if type == 1 then
-                local n = net.ReadUInt(2)
-                --print(n == 2 and not ctrl:GetAimingWeapon())
-                ctrl:SetAimingWeapon(n == 2 and not ctrl:GetAimingWeapon() or n ~= 2 and tobool(n))
-            else
-                local n = net.ReadUInt(2)
-                ctrl.LowPose = (n ~= 2 and tobool(n) or not ctrl.LowPose)
-            end
+        -- Disabled, due to replacing it with my new inputs system
+        --elseif IsValid(ctrl) then
+        --    if type == 1 then
+        --        local n = net.ReadUInt(2)
+        --        --print(n == 2 and not ctrl:GetAimingWeapon())
+        --        ctrl:SetAimingWeapon(n == 2 and not ctrl:GetAimingWeapon() or n ~= 2 and tobool(n))
+        --    else
+        --        local n = net.ReadUInt(2)
+        --        ctrl.LowPose = (n ~= 2 and tobool(n) or not ctrl.LowPose)
+        --    end
         end
         --if not IsValid(ctrl) then return end
     
+    end)
+
+    net.Receive("Rnil_AdvRagKnockdown_Inputs", function(len, p)
+        local ctrl = p.Savee_AdvRagKnockdown_Controller
+        if not IsValid(ctrl) then return end
+        
+        local inputs = ctrl.Inputs
+        inputs:ReadNet()
     end)
 
     local replaceACTs = {
@@ -1978,15 +2051,6 @@ if SERVER then
 
     end)
 
-    local blackListedInputs_NonAiming = {
-        IN_ATTACK2,
-        IN_RELOAD,
-    }
-    local blackListedInputs = {
-        IN_SPEED,
-        IN_DUCK,
-    }
-
     
     -- 加个优先级
     hook.Add("StartCommand", "Savee_AdvRagKnockdown_RagView", function(ply, cmd)
@@ -1994,7 +2058,6 @@ if SERVER then
         local ctrl = ply.Savee_AdvRagKnockdown_Controller
         handlingKnockdownedCmd = IsValid(ctrl)
         if not IsValid(ctrl) then return end
-
 
         local stamina = ctrl:GetStamina()
         local consc = ctrl:GetConsciousness()
@@ -2004,10 +2067,10 @@ if SERVER then
         --cmd:RemoveKey()
         --print(cmd:GetViewAngles())
 
-        for key, stat in pairs(ctrl.KeyInputs) do
-            if not stat or cmd:KeyDown(key) then continue end
-            ctrl.KeyInputs[key] = nil
-        end
+        --for key, stat in pairs(ctrl.KeyInputs) do
+        --    if not stat or cmd:KeyDown(key) then continue end
+        --    ctrl.KeyInputs[key] = nil
+        --end
 
         --print(ctrl.AimEyeAngles)
         --print(angDelta)
@@ -2017,20 +2080,20 @@ if SERVER then
 
         for _, key in ipairs(blackListedInputs) do
             if not cmd:KeyDown(key) then continue end
-            ctrl:AddKeyInput(key)
+            --ctrl:AddKeyInput(key)
             cmd:RemoveKey(key)
         end
 
         if (not aiming or consc < 55) and IsValid(wep) then
             for _, key in ipairs(blackListedInputs_NonAiming) do
                 if not cmd:KeyDown(key) then continue end
-                ctrl:AddKeyInput(key)
+                --ctrl:AddKeyInput(key)
                 cmd:RemoveKey(key)
             end
             
             local ht = Rnil_AdvRagKnockdown_GetHoldType(wep)
             if cmd:KeyDown(IN_ATTACK) and (meleeHTs[ht] or (wep:Clip1() == 0 and blackListedHTs[ht])) then
-                ctrl:AddKeyInput(IN_ATTACK)
+                --ctrl:AddKeyInput(IN_ATTACK)
                 cmd:RemoveKey(IN_ATTACK)
             end
         elseif ctrl:GetLArmDelta() > 0.3 and cmd:KeyDown(IN_RELOAD) then
@@ -2077,22 +2140,22 @@ else
 
     --local cv_userenderview = CreateClientConVar(cvPrefix .. "cl_userenderview", 1, true, true, "使用RenderView, 可能会导致性能问题, 但应该可以解决不正确的Clipping", 0, 1)
 
-    local function sendAimingMsg(state)
-        if not cv_kd_enabled:GetBool() then return end
-        net.Start("Savee_AdvRagKnockdown_OperationMsg", true)
-        net.WriteUInt(1, BITCOUNT_OPERATIONINFO)
-        net.WriteUInt(state ~= nil and tonumber(state) or 2, 2)
-        net.SendToServer()
-    end
-    local function sendLowPoseMsg(state)
-        if not cv_kd_enabled:GetBool() then return end
-        net.Start("Savee_AdvRagKnockdown_OperationMsg", true)
-        net.WriteUInt(2, BITCOUNT_OPERATIONINFO)
-        net.WriteUInt(state ~= nil and tonumber(state) or 2, 2)
-        net.SendToServer()
-    end
+    --local function sendAimingMsg(state)
+    --    if not cv_kd_enabled:GetBool() then return end
+    --    net.Start("Savee_AdvRagKnockdown_OperationMsg", true)
+    --    net.WriteUInt(1, BITCOUNT_OPERATIONINFO)
+    --    net.WriteUInt(state ~= nil and tonumber(state) or 2, 2)
+    --    net.SendToServer()
+    --end
+    --local function sendLowPoseMsg(state)
+    --    if not cv_kd_enabled:GetBool() then return end
+    --    net.Start("Savee_AdvRagKnockdown_OperationMsg", true)
+    --    net.WriteUInt(2, BITCOUNT_OPERATIONINFO)
+    --    net.WriteUInt(state ~= nil and tonumber(state) or 2, 2)
+    --    net.SendToServer()
+    --end
 
-    local oldAimingState
+    --local oldAimingState
 
     concommand.Add(cvPrefix .. "doknockdown", function()
         if not cv_kd_enabled:GetBool() then return end
@@ -2110,23 +2173,30 @@ else
     
     end)
 
+    local _aiming,_lowpose = false,false
     concommand.Add(cvPrefix .. "toggleaimweapon", function()
-        sendAimingMsg()
+        --sendAimingMsg()
+        _aiming = not _aiming
     end)
     concommand.Add("+advragknockdown_aimweapon", function()
-        sendAimingMsg(true)
+        --sendAimingMsg(true)
+        _aiming = true
     end)
     concommand.Add("-advragknockdown_aimweapon", function()
-        sendAimingMsg(false)
+        --sendAimingMsg(false)
+        _aiming = false
     end)
     concommand.Add(cvPrefix .. "toggleaimlowpose", function()
-        sendLowPoseMsg()
+        --sendLowPoseMsg()
+        _lowpose = not _lowpose
     end)
     concommand.Add("+advragknockdown_aimlowpose", function()
-        sendLowPoseMsg(true)
+        --sendLowPoseMsg(true)
+        _lowpose = true
     end)
     concommand.Add("-advragknockdown_aimlowpose", function()
-        sendLowPoseMsg(false)
+        --sendLowPoseMsg(false)
+        _lowpose = false
     end)
 
     hook.Add("CreateClientsideRagdoll", "Savee_AdvRagKnockdown_RagSync", function(ply, deadRag)
@@ -2188,11 +2258,70 @@ else
 
     local last_stored_roll = 0
     local rollvel = 0
+    local inputs
     hook.Add("StartCommand", "Savee_AdvRagKnockdown_RagOperation", function(ply, cmd)
         ---@type Entity
         local ctrl = getController(ply)
-        handlingKnockdownedCmd = IsValid(ctrl)
-        if not IsValid(ctrl) then oldAimingState = false return end
+
+        handlingKnockdownedCmd = true
+        if not IsValid(ctrl) then handlingKnockdownedCmd = false oldAimingState = false return end
+
+        inputs = ctrl.Inputs
+        local obuttons = inputs.Buttons
+        inputs:FromCUserCMD(cmd)
+
+        inputs:SetInputs(0)
+
+        if inputs:KeyDown(IN_FORWARD) and not inputs:KeyDown(IN_BACK) then
+            inputs:AddInput(INPUTS.FORWARD)
+        elseif inputs:KeyDown(IN_BACK) and not inputs:KeyDown(IN_FORWARD) then
+            inputs:AddInput(INPUTS.BACKWARD)
+        end
+
+        if inputs:KeyDown(IN_ATTACK) then
+            inputs:AddInput(INPUTS.ATTACK)
+        end
+
+        if inputs:KeyDown(IN_ATTACK2) then
+            inputs:AddInput(INPUTS.ATTACK2)
+        end
+
+        if inputs:KeyDown(IN_DUCK) then
+            inputs:AddInput(INPUTS.DUCK)
+        end
+
+        local aimingBind = clcv_ctrl_nodefkeybind:GetBool() and input.LookupBinding("+advragknockdown_aimweapon") or input.LookupBinding(cvPrefix .. "toggleaimweapon")
+        if not aimingBind then
+            local aiming = inputs:KeyDown(cvVars.cl_control_altaimkey and IN_WALK or IN_USE)
+            if clcv_ctrl_reversedaiming:GetBool() then aiming = not aiming end
+
+            if aiming then
+                inputs:AddInput(INPUTS.AIMING)
+            end
+        end
+
+        if inputs:KeyDown(IN_SPEED) then
+            inputs:AddInput(INPUTS.SPEED)
+        end
+
+        if inputs:KeyDown(IN_WALK) then
+            inputs:AddInput(INPUTS.WALK)
+        end
+
+        if inputs:KeyDown(IN_JUMP) then
+            inputs:AddInput(INPUTS.GETUP)
+        end
+
+        if _lowpose then
+            inputs:AddInput(INPUTS.DUCK)
+        end
+        if _aiming then
+            inputs:AddInput(INPUTS.AIMING)
+        end
+
+        net.Start("Rnil_AdvRagKnockdown_Inputs")
+            inputs:WriteNet()
+        net.SendToServer()
 
         local consc = ctrl:GetConsciousness()
 
@@ -2225,26 +2354,26 @@ else
         cmd:SetViewAngles(oldAng, true)
         last_stored_roll = oldAng.r
 
-        local aimingBind = clcv_ctrl_nodefkeybind:GetBool() and input.LookupBinding("+advragknockdown_aimweapon") or input.LookupBinding(cvPrefix .. "toggleaimweapon")
+        --local aimingBind = clcv_ctrl_nodefkeybind:GetBool() and input.LookupBinding("+advragknockdown_aimweapon") or input.LookupBinding(cvPrefix .. "toggleaimweapon")
 
-        local newAimingState = cmd:KeyDown(cvVars.cl_control_altaimkey and IN_WALK or IN_USE)
-        
-        -- 世界上最聪明的解决方案
-        if clcv_ctrl_reversedaiming:GetBool() then newAimingState = not newAimingState end
+        --local newAimingState = cmd:KeyDown(cvVars.cl_control_altaimkey and IN_WALK or IN_USE)
+        --
+        ---- 世界上最聪明的解决方案
+        --if clcv_ctrl_reversedaiming:GetBool() then newAimingState = not newAimingState end
 
-        if not aimingBind and newAimingState ~= oldAimingState then
-            --print(1)
-            --print(cmd:KeyDown(IN_USE))
-            sendAimingMsg(newAimingState and 1 or 0)
-            oldAimingState = newAimingState
-        end
+        --if not aimingBind and newAimingState ~= oldAimingState then
+        --    --print(1)
+        --    --print(cmd:KeyDown(IN_USE))
+        --    sendAimingMsg(newAimingState and 1 or 0)
+        --    oldAimingState = newAimingState
+        --end
 
         --print(cmd:GetMouseX())
 
         local wep = ply:GetActiveWeapon()
         if not ctrl.GetAimingWeapon then return end
         local aiming = ctrl:GetAimingWeapon()
-
+        --[[
         if not aiming and IsValid(wep) then
             if cmd:KeyDown(IN_RELOAD) then
                 ctrl:AddKeyInput(IN_RELOAD)
@@ -2261,8 +2390,28 @@ else
         elseif ctrl:GetLArmDelta() > 0.3 and cmd:KeyDown(IN_RELOAD) then
             cmd:RemoveKey(IN_RELOAD)
         end
+        ]]
+        for _, key in ipairs(blackListedInputs) do
+            if not cmd:KeyDown(key) then continue end
+            --ctrl:AddKeyInput(key)
+            cmd:RemoveKey(key)
+        end
 
-    
+        if (not aiming or consc < 55) and IsValid(wep) then
+            for _, key in ipairs(blackListedInputs_NonAiming) do
+                if not cmd:KeyDown(key) then continue end
+                ---ctrl:AddKeyInput(key)
+                cmd:RemoveKey(key)
+            end
+            
+            local ht = Rnil_AdvRagKnockdown_GetHoldType(wep)
+            if cmd:KeyDown(IN_ATTACK) and (meleeHTs[ht] or (wep:Clip1() == 0 and blackListedHTs[ht])) then
+                --ctrl:AddKeyInput(IN_ATTACK)
+                cmd:RemoveKey(IN_ATTACK)
+            end
+        elseif ctrl:GetLArmDelta() > 0.3 and cmd:KeyDown(IN_RELOAD) then
+            cmd:RemoveKey(IN_RELOAD)
+        end
     end)
 
     local function returnCheck(self)
