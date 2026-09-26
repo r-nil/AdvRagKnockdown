@@ -2268,6 +2268,9 @@ else
         handlingKnockdownedCmd = true
         if not IsValid(ctrl) then handlingKnockdownedCmd = false oldAimingState = false return end
 
+        local consc = ctrl:GetConsciousness()
+        if consc < 15 then cmd:ClearButtons() end
+
         inputs = ctrl.Inputs
         local obuttons = inputs.Buttons
         inputs:FromCUserCMD(cmd)
@@ -2324,8 +2327,6 @@ else
         net.Start("Rnil_AdvRagKnockdown_Inputs")
             inputs:WriteNet()
         net.SendToServer()
-
-        local consc = ctrl:GetConsciousness()
 
         local oldAng = ctrl:GetAimEyeAngles()
         local wep = ply:GetActiveWeapon()
