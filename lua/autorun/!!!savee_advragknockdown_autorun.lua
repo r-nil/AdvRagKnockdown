@@ -288,6 +288,9 @@ local wlDebugTraces = {
     "wire_",
     "wep_jack_gmod_hands",
     "mvp_perfecthands",
+    --"FGC_FireLuaBullets",
+    "FireLuaBullets", -- this is enough
+    "TraceAttack" -- BS:R:R:F
 }
 
 local function isWhiteListedTrace(traceStr)
@@ -603,29 +606,29 @@ funchooks.Add("NPC.GetShootPos", "Savee_AdvRagKnockdown_Sync", function(ply, ...
 end)
 
 funchooks.Add("Entity.SetOwner", "Savee_AdvRagKnockdown_AntiBadCollision", function(ent, own, raw, ...)
-    if debug.getinfo(3,"nS").name and debug.getinfo(3,"nS").name:match("GiveStatus") then return __undetoured(ent, own, raw, ...) end
+    --if debug.getinfo(3,"nS").name and debug.getinfo(3,"nS").name:match("GiveStatus") then return __undetoured(ent, own, raw, ...) end
     if raw or not entTypeCheck(own) then return __undetoured(ent, own, raw, ...) end
     local ctrl = getController(own)
 
     if not IsValid(ctrl) then return __undetoured(ent, own, raw, ...) end
     local rag = ctrl:GetRagdoll()
 
-    ctrl.OwnerModifiedEnts[ent] = true
+    --ctrl.OwnerModifiedEnts[ent] = true
 
     return __undetoured(ent, rag, raw, ...)
    
 end)
 
-funchooks.AddPost("Entity.GetOwner", "Savee_AdvRagKnockdown_AntiBadCollision", function(ent, inputs, own, ...)
-
-    local raw = inputs[1]
-    if raw or not entTypeCheck(own) then return __undetoured(ent, inputs, own, ...) end
-
-    local ctrl = getController(own)
-    if not IsValid(ctrl) or not ctrl.OwnerModifiedEnts[ent] then return __undetoured(ent, inputs, own, ...) end
-
-    return __undetoured(ent, inputs, __raw(ctrl), ...)
-   
+funchooks.Add("Entity.GetOwner", "Savee_AdvRagKnockdown_GetOwnerFix", function(ent, raw, ...)
+    if raw then return __undetoured(ent,raw,...) end
+    local result = __undetoured(ent,raw,...)
+    if IsValid(result) then
+        local ctrl = result:GetNW2Entity("Savee_AdvRagKnockdown_Controller")
+        if IsValid(ctrl) then
+            return __undetoured(ctrl,raw,...)
+        end
+    end
+    return result
 end)
 
 local INE = math.IsNearlyEqual
@@ -1339,6 +1342,9 @@ if SERVER then
         if not cv_kd_enabled:GetBool() then return end
         
         if not entTypeCheck(ply) then return end
+
+        if ply:IsPlayer() and ply:Team() == TEAM_ZOMBIE then return end
+
         --print("正在击倒: ", ply, vec, bone)
 
         local oldCtrl = getController(ply)
