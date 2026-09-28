@@ -37,7 +37,9 @@ local cv_kd_enabled = CreateConVar(cvPrefix .. "enabled", 1, cvTags, "激活整�
 local cv_kd_enabled_ply = CreateConVar(cvPrefix .. "enableply", 1, cvTags, "对玩家启用击倒", 0, 1)
 local cv_kd_enabled_npc = CreateConVar(cvPrefix .. "enablenpc", 1, cvTags, "对NPC启用击倒", 0, 1)
 
-local cv_always_ragdoll = CreateConVar(cvPrefix .. "sb", 1, cvTags, "在某些模式下,所有人總是會在擊倒狀態", 0, 1)
+local cv_kd_allowed = CreateConVar(cvPrefix .. "allowed", 0, cvTags, "enable knockdown(doesn't stop some hooks from running)", 0, 1)
+
+local cv_always_ragdoll = CreateConVar(cvPrefix .. "sb", 0, cvTags, "在某些模式下,所有人總是會在擊倒狀態", 0, 1)
 cvars.AddChangeCallback(cvPrefix .. "sb", function(_,_,new)
     if not tobool(new) then return end
     if not Rnil_ADVRAGKNOCKDOWN_SB then return end
@@ -1340,6 +1342,7 @@ if SERVER then
 
     local function doKnockdown(ply, vec, bone)
         if not cv_kd_enabled:GetBool() then return end
+        if not cv_kd_allowed:GetBool() then return end
         
         if not entTypeCheck(ply) then return end
 
