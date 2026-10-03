@@ -786,6 +786,7 @@ local function modifyRagdoll(rag, pObjs, ownVel)
         pObj:EnableMotion(true)
         pObj:Wake()
         pObj:SetVelocityInstantaneous(oldVels[i] + ownVel)
+
     end
 
     -- 在这加个CV
@@ -936,6 +937,8 @@ function ENT:Initialize()
     rag:SetModel(own:GetModel())
     rag:SetPos(self:GetPos())
     rag:SetAngles(own:GetAngles())
+
+    rag.m_NailsDontAbsorb = true
 
     cloneAtoB(own, rag)
     --rag:RemoveFlags(FL_OBJECT)
@@ -1283,12 +1286,31 @@ function ENT:GetInfo(cv)
 end
 
 function ENT:TryGetUp(animTbl, forced)
+
+    local rag = self:GetRagdoll()
+    if not forced and rag.SetBarricadeHealth and rag.GetBarricadeHealth and rag.IsNailed and rag:IsNailed() then
+        local damage = 4
+        local attacker = self:GetOwner()
+        local inflictor = self
+        local dmginfo = DamageInfo()
+        dmginfo:SetDamage(damage)
+        rag:SetBarricadeHealth(rag:GetBarricadeHealth() - damage)
+        for i, nail in ipairs(rag:GetNails()) do
+            nail:OnDamaged(damage, attacker, inflictor, dmginfo)
+        end
+
+        if rag:GetBarricadeHealth() < 0 then
+            rag:SetBarricadeHealth(0)
+            for i, nail in ipairs(rag:GetNails()) do
+                nail:Remove()
+            end
+        end
+    end
     --do return false end
     if not forced and not self:ShouldGetUp() then return end
 
     if not animTbl then
 
-        local rag = self:GetRagdoll()
         local besties = {}
         local _, pitch = rag:GetBonePosition(0)
         pitch = pitch.p
@@ -1369,6 +1391,7 @@ end
 
 function ENT:ShouldGetUp()
 
+    if self.NoGetUp then return false end
     if self.NextGetUp > CurTime() then return false end
 
     local own = self:GetOwner()
@@ -1382,6 +1405,8 @@ function ENT:ShouldGetUp()
     if getCV("sb", "Bool") and Rnil_ADVRAGKNOCKDOWN_SB then
         return false
     end
+
+    if rag.IsNailed and rag:IsNailed() then return end
 
     if self.GettingUp then
         local bp1 = (self.GettingUp_SyncingToOwner and self or self.GetupAnimModel):GetBonePosition(0)
@@ -1620,6 +1645,7 @@ function ENT:Think()
 
     local wep = own:GetActiveWeapon()
     
+    --[[
     if IsValid(wep) then
         local wepHT
         wepHT = Rnil_AdvRagKnockdown_GetHoldType(wep)
@@ -1629,6 +1655,7 @@ function ENT:Think()
             wep:SetNextSecondaryFire(ct + 0.2)
         end
     end
+    ]]
     self.DI_MarkedAsTaken = {}
     
     local rag = self:GetRagdoll()
@@ -2866,7 +2893,7 @@ function ENT:Tick()
 
     if IsValid(wep) then
         wepHT = Rnil_AdvRagKnockdown_GetHoldType(wep)
-        noArm, isMeleeHT = noAimHTs[wepHT] or (meleeHTs[wepHT] and not aimingWeapon), meleeHTs[wepHT]
+        noArm, isMeleeHT = (noAimHTs[wepHT] and not aimingWeapon) or (meleeHTs[wepHT] and not aimingWeapon), meleeHTs[wepHT]
         --print(noArm, wepHT)
     elseif not isPly and not own:CapabilitiesHas(CAP_USE_WEAPONS) then
         --print(1) 
@@ -3629,7 +3656,7 @@ function ENT:CalcView(ply, pos, ang, fov)
         --print(1)
 
         wepHT = Rnil_AdvRagKnockdown_GetHoldType(wep)
-        noArm = noAimHTs[wepHT] or (wep:IsScripted() and wep.ViewModel == "") --, isMeleeHT = noAimHTs[wepHT], meleeHTs[wepHT]
+        noArm = (noAimHTs[wepHT] and not self:GetAimingWeapon()) or (wep:IsScripted() and wep.ViewModel == "") --, isMeleeHT = noAimHTs[wepHT], meleeHTs[wepHT]
     end
 
     if consc < noArmVal then noArm = true end
@@ -3783,9 +3810,6 @@ function ENT:MergeHands(hands)
     lArmDelta = self.LastLArmDelta
 
     --vm:SetupBones()
-    if isfunction(wep.DoLHIK) then
-        wep:DoLHIK()
-    end
     hands:SetupBones()
     rag:SetupBones()
 

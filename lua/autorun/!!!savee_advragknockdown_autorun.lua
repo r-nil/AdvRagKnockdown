@@ -164,6 +164,12 @@ local meleeHTs = {
     ["knife"] = true,
 }
 
+local noAimHTs = {
+    [""] = true,
+    ["normal"] = true,
+    ["fist"] = true,
+}
+
 -- ToDo: 是否需要将NW换成NW2?
 
 --[[SAVEE_ADVRAGKNOCKDOWN_LIMBS = {
@@ -292,6 +298,7 @@ local wlDebugTraces = {
     "mvp_perfecthands",
     --"FGC_FireLuaBullets",
     "FireLuaBullets", -- this is enough
+    "FireBulletsLua",
     "TraceAttack" -- BS:R:R:F
 }
 
@@ -1552,6 +1559,10 @@ if SERVER then
             local result, should = runThatHook("Savee_AdvRagKnockdown_ShouldKnockdown", ent, di, take)
             if result and not should then return end
 
+            if di:GetDamageType() == DMG_CLUB or di:GetDamageType() == DMG_SLASH then
+                dmg = dmg * 0.65
+            end
+            
             if dmg <= cv_kd_knockdown_mindamage:GetFloat() and di:GetDamageForce():Length() < cv_kd_knockdown_mindamageforce:GetFloat() then return end
         end
             --print(ent:Health())
@@ -2103,7 +2114,7 @@ if SERVER then
             end
             
             local ht = Rnil_AdvRagKnockdown_GetHoldType(wep)
-            if cmd:KeyDown(IN_ATTACK) and (meleeHTs[ht] or (wep:Clip1() == 0 and blackListedHTs[ht])) then
+            if cmd:KeyDown(IN_ATTACK) and (meleeHTs[ht] or (wep:Clip1() == 0 and blackListedHTs[ht]) or noAimHTs[ht]) then
                 --ctrl:AddKeyInput(IN_ATTACK)
                 cmd:RemoveKey(IN_ATTACK)
             end
@@ -2353,14 +2364,14 @@ else
             oldAng.r = math.Approach(oldAng.r, 0, 15)
         elseif cmd:KeyDown(IN_MOVELEFT) then
             --oldAng = (oldAng - Angle(0, 0, 45) * conscLerp * FrameTime())
-            if valid then rollvel = Lerp(FrameTime() * 7,rollvel,-1) end
+            rollvel = Lerp(FrameTime() * 7,rollvel,-1)
         elseif cmd:KeyDown(IN_MOVERIGHT) then
             --oldAng = (oldAng + Angle(0, 0, 45) * conscLerp * FrameTime())
-            if valid then rollvel = Lerp(FrameTime() * 7,rollvel,1) end
+            rollvel = Lerp(FrameTime() * 7,rollvel,1)
         end
 
-        oldAng.r = oldAng.r + rollvel * FrameTime() * 90
-        if valid then rollvel = rollvel * math.max(0,1 - FrameTime() * 7) end
+        oldAng.r = oldAng.r + rollvel * FrameTime() * 95
+        rollvel = rollvel * math.max(0,1 - FrameTime() * 5)
 
         cmd:SetViewAngles(oldAng, true)
         last_stored_roll = oldAng.r
@@ -2416,7 +2427,7 @@ else
             end
             
             local ht = Rnil_AdvRagKnockdown_GetHoldType(wep)
-            if cmd:KeyDown(IN_ATTACK) and (meleeHTs[ht] or (wep:Clip1() == 0 and blackListedHTs[ht])) then
+            if cmd:KeyDown(IN_ATTACK) and (meleeHTs[ht] or (wep:Clip1() == 0 and blackListedHTs[ht]) or noAimHTs[ht]) then
                 --ctrl:AddKeyInput(IN_ATTACK)
                 cmd:RemoveKey(IN_ATTACK)
             end
@@ -2669,6 +2680,9 @@ else
     --    if not IsValid(getController(LocalPlayer())) then return end
     --end)
 
+    hook.Add("HumanMenu","Rnil_AdvRagKnockdown_NoALTMenu",function()
+        if IsValid(getController(LocalPlayer())) then return false end
+    end)
 end
 
 Savee_AdvRagKnockdown_GetController = getController
